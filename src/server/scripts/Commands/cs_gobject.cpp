@@ -410,8 +410,7 @@ public:
         if (!toZ || !toY || !toX)
             return false;
 
-        object->SetRotationAngles((float)atof(toZ), (float)atof(toY), (float)atof(toX));
-
+        object->SetWorldRotationAngles((float)atof(toZ), (float)atof(toY), (float)atof(toX));
         object->SaveToDB();
 
         handler->PSendSysMessage(LANG_COMMAND_TURNOBJMESSAGE, object->GetGUIDLow(), object->GetGOInfo()->name.c_str(), object->GetGUIDLow());
