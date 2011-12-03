@@ -167,7 +167,7 @@ template<>
 bool RandomMovementGenerator<Creature>::GetResetPosition(Creature &creature, float& x, float& y, float& z)
 {
     float radius;
-    creature.GetRespawnCoord(x, y, z, NULL, &radius);
+    creature.GetRespawnPosition(x, y, z, NULL, &radius);
 
     // use current if in range
     if (creature.IsWithinDist2d(x,y,radius))

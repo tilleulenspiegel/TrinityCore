@@ -48,10 +48,6 @@ bool PointMovementGenerator<T>::Update(T &unit, const uint32 &diff)
         unit.ClearUnitState(UNIT_STAT_ROAMING_MOVE);
         return true;
     }
-    else if (!unit.HasUnitState(UNIT_STAT_MOVE) && !unit.HasUnitState(UNIT_STAT_JUMPING))
-    {
-        i_destinationHolder.StartTravel(traveller);
-    }
 
     unit.AddUnitState(UNIT_STAT_ROAMING_MOVE);
     return !unit.movespline->Finalized();
