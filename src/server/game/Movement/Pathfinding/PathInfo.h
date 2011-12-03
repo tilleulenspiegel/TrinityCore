@@ -16,12 +16,12 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-#ifndef MANGOS_PATH_FINDER_H
-#define MANGOS_PATH_FINDER_H
+#ifndef _PATH_FINDER_H
+#define _PATH_FINDER_H
 
-#include "MoveMapSharedDefines.h"
-#include "../recastnavigation/Detour/Include/DetourNavMesh.h"
-#include "../recastnavigation/Detour/Include/DetourNavMeshQuery.h"
+#include "SharedDefines.h"
+#include "DetourNavMesh.h"
+#include "DetourNavMeshQuery.h"
 #include "MoveSplineInitArgs.h"
 
 using Movement::Vector3;
