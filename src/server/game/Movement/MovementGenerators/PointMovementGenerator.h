@@ -27,8 +27,8 @@ class PointMovementGenerator
 : public MovementGeneratorMedium< T, PointMovementGenerator<T> >
 {
     public:
-        PointMovementGenerator(uint32 _id, float _x, float _y, float _z) : id(_id),
-            i_x(_x), i_y(_y), i_z(_z) {}
+        PointMovementGenerator(uint32 _id, float _x, float _y, float _z, bool _generatePath) : id(_id),
+            i_x(_x), i_y(_y), i_z(_z), m_generatePath(_generatePath) {}
 
         void Initialize(T &);
         void Finalize(T &);
@@ -43,6 +43,7 @@ class PointMovementGenerator
     private:
         uint32 id;
         float i_x, i_y, i_z;
+        bool m_generatePath;
 };
 
 class AssistanceMovementGenerator
@@ -50,7 +51,7 @@ class AssistanceMovementGenerator
 {
     public:
         AssistanceMovementGenerator(float _x, float _y, float _z) :
-            PointMovementGenerator<Creature>(0, _x, _y, _z) {}
+            PointMovementGenerator<Creature>(0, _x, _y, _z, true) {}
 
         MovementGeneratorType GetMovementGeneratorType() { return ASSISTANCE_MOTION_TYPE; }
         void Finalize(Unit &);
