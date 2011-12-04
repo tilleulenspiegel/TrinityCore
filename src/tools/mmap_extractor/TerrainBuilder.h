@@ -19,9 +19,9 @@
 #ifndef _MMAP_TERRAIN_BUILDER_H
 #define _MMAP_TERRAIN_BUILDER_H
 
-#include "MMapCommon.h"
-#include "MangosMap.h"
-#include "../../src/game/MoveMapSharedDefines.h"
+#include "PathCommon.h"
+#include "Map.h"
+#include "SharedDefines.h"
 
 #include "WorldModel.h"
 
@@ -29,7 +29,7 @@
 #include "G3D/Vector3.h"
 #include "G3D/Matrix3.h"
 
-using namespace MaNGOS;
+using namespace Trinity;
 
 namespace MMAP
 {
