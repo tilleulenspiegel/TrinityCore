@@ -1,22 +1,22 @@
 /*
- * Copyright (C) 2008-2011 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2005-2011 MaNGOS <http://getmangos.com/>
  *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2 of the License, or (at your
- * option) any later version.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
  *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
- * more details.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License along
- * with this program. If not, see <http://www.gnu.org/licenses/>.
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-#include "PathCommon.h"
+#include "MMapCommon.h"
 #include "MapBuilder.h"
 
 using namespace Pathfinding;
@@ -68,7 +68,7 @@ bool handleArgs(int argc, char** argv,
                bool &skipJunkMaps,
                bool &skipBattlegrounds,
                bool &debugOutput,
-               bool &silent, 
+               bool &silent,
                bool &bigBaseUnit,
                char* &offMeshInputPath)
 {
@@ -78,7 +78,7 @@ bool handleArgs(int argc, char** argv,
         if (strcmp(argv[i], "--maxAngle") == 0)
         {
             param = argv[++i];
-            if(!param)
+            if (!param)
                 return false;
 
             float maxangle = atof(param);
@@ -156,7 +156,7 @@ bool handleArgs(int argc, char** argv,
 
             if (strcmp(param, "true") == 0)
                 skipBattlegrounds = true;
-            else if(strcmp(param, "false") == 0)
+            else if (strcmp(param, "false") == 0)
                 skipBattlegrounds = false;
             else
                 printf("invalid option for '--skipBattlegrounds', using default\n");
@@ -211,6 +211,7 @@ bool handleArgs(int argc, char** argv,
             }
         }
     }
+
     return true;
 }
 
@@ -229,9 +230,9 @@ int main(int argc, char** argv)
     bool skipLiquid = false,
          skipContinents = false,
          skipJunkMaps = true,
-         skipBattlegrounds = true,
+         skipBattlegrounds = false,
          debugOutput = false,
-         silent = false, 
+         silent = false,
          bigBaseUnit = false;
     char* offMeshInputPath = NULL;
 
@@ -247,11 +248,11 @@ int main(int argc, char** argv)
     {
         if (silent)
             return -2;
- 
+
         printf("You have specifed debug output, but didn't specify a map to generate.\n");
         printf("This will generate debug output for ALL maps.\n");
         printf("Are you sure you want to continue? (y/n) ");
-        if(getchar() != 'y')
+        if (getchar() != 'y')
             return 0;
     }
 
@@ -262,11 +263,11 @@ int main(int argc, char** argv)
                        skipBattlegrounds, debugOutput, bigBaseUnit, offMeshInputPath);
 
     if (tileX > -1 && tileY > -1 && mapnum >= 0)
-        builder.buildTile(mapnum, tileX, tileY);
+        builder.buildSingleTile(mapnum, tileX, tileY);
     else if (mapnum >= 0)
         builder.buildMap(uint32(mapnum));
     else
         builder.buildAllMaps();
 
-    return silent ? 1 : finish("Maps Generating is done!", 1);
+    return silent ? 1 : finish("Movemap build is complete!", 1);
 }

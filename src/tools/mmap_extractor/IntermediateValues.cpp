@@ -39,21 +39,21 @@ namespace Pathfinding
 
         string name("meshes/%03u%02i%02i.");
 
-        #define DEBUG_WRITE(fileExtension,data) \
-        do { \
-            sprintf(fileName, (name + fileExtension).c_str(), mapID, tileY, tileX); \
-            FILE* file = fopen(fileName, "wb"); \
-            if (!file) \
-            { \
-                char message[1024]; \
-                sprintf(message, "%sFailed to open %s for writing!\n",  tileString, fileName); \
-                perror(message); \
-            } \
+#define DEBUG_WRITE(fileExtension,data) \
+    do { \
+    sprintf(fileName, (name + fileExtension).c_str(), mapID, tileY, tileX); \
+    FILE* file = fopen(fileName, "wb"); \
+    if (!file) \
+        { \
+        char message[1024]; \
+        sprintf(message, "%sFailed to open %s for writing!\n",  tileString, fileName); \
+        perror(message); \
+        } \
             else \
-                debugWrite(file, data); \
+            debugWrite(file, data); \
             if(file) fclose(file); \
             printf("%sWriting debug output...                       \r", tileString); \
-        } while (false)
+    } while (false)
 
         if(heightfield)
             DEBUG_WRITE("hf", heightfield);
@@ -66,7 +66,7 @@ namespace Pathfinding
         if(polyMeshDetail)
             DEBUG_WRITE("dmesh", polyMeshDetail);
 
-        #undef DEBUG_WRITE
+#undef DEBUG_WRITE
     }
 
     void IntermediateValues::debugWrite(FILE* file, const rcHeightfield* mesh)
@@ -199,18 +199,49 @@ namespace Pathfinding
         fwrite(mesh->meshes, sizeof(int), mesh->nmeshes*4, file);
     }
 
-    void IntermediateValues::generateObjFile(uint32 mapID, uint32 tileX, uint32 tileY, MeshData meshData)
+    void IntermediateValues::generateObjFile(uint32 mapID, uint32 tileX, uint32 tileY, MeshData &meshData)
     {
-        generateRealObj(mapID, tileX, tileY, meshData);
+        char objFileName[255];
+        sprintf(objFileName, "meshes/map%03u.obj", mapID);
+
+        FILE* objFile = fopen(objFileName, "wb");
+        if (!objFile)
+        {
+            char message[1024];
+            sprintf(message, "Failed to open %s for writing!\n", objFileName);
+            perror(message);
+            return;
+        }
+
+        G3D::Array<float> allVerts;
+        G3D::Array<int> allTris;
+
+        allTris.append(meshData.liquidTris);
+        allVerts.append(meshData.liquidVerts);
+        TerrainBuilder::copyIndices(meshData.solidTris, allTris, allVerts.size() / 3);
+        allVerts.append(meshData.solidVerts);
+
+        float* verts = allVerts.getCArray();
+        int vertCount = allVerts.size() / 3;
+        int* tris = allTris.getCArray();
+        int triCount = allTris.size() / 3;
+
+        for (int i = 0; i < allVerts.size() / 3; i++)
+            fprintf(objFile, "v %f %f %f\n", verts[i*3], verts[i*3 + 1], verts[i*3 + 2]);
+
+        for (int i = 0; i < allTris.size() / 3; i++)
+            fprintf(objFile, "f %i %i %i\n", tris[i*3] + 1, tris[i*3 + 1] + 1, tris[i*3 + 2] + 1);
+
+        fclose(objFile);
+
 
         char tileString[25];
         sprintf(tileString, "[%02u,%02u]: ", tileY, tileX);
         printf("%sWriting debug output...                       \r", tileString);
 
-        char objFileName[255];
         sprintf(objFileName, "meshes/%03u.map", mapID);
 
-        FILE* objFile = fopen(objFileName, "wb");
+        objFile = fopen(objFileName, "wb");
         if (!objFile)
         {
             char message[1024];
@@ -233,19 +264,6 @@ namespace Pathfinding
             return;
         }
 
-        G3D::Array<float> allVerts;
-        G3D::Array<int> allTris;
-
-        allTris.append(meshData.liquidTris);
-        allVerts.append(meshData.liquidVerts);
-        TerrainBuilder::copyIndices(allTris, meshData.solidTris, allVerts.size() / 3);
-        allVerts.append(meshData.solidVerts);
-
-        float* verts = allVerts.getCArray();
-        int vertCount = allVerts.size() / 3;
-        int* tris = allTris.getCArray();
-        int triCount = allTris.size() / 3;
-
         fwrite(&vertCount, sizeof(int), 1, objFile);
         fwrite(verts, sizeof(float), vertCount*3, objFile);
         fflush(objFile);
@@ -253,40 +271,6 @@ namespace Pathfinding
         fwrite(&triCount, sizeof(int), 1, objFile);
         fwrite(tris, sizeof(int), triCount*3, objFile);
         fflush(objFile);
-
-        fclose(objFile);
-    }
-
-    void IntermediateValues::generateRealObj(uint32 mapID, uint32 tileX, uint32 tileY, MeshData meshData)
-    {
-        char objFileName[255];
-        sprintf(objFileName, "meshes/map%03u.obj", mapID);
-
-        FILE* objFile = fopen(objFileName, "wb");
-        if (!objFile)
-        {
-            char message[1024];
-            sprintf(message, "Failed to open %s for writing!\n", objFileName);
-            perror(message);
-            return;
-        }
-
-        G3D::Array<float> allVerts;
-        G3D::Array<int> allTris;
-
-        allTris.append(meshData.liquidTris);
-        allVerts.append(meshData.liquidVerts);
-        TerrainBuilder::copyIndices(allTris, meshData.solidTris, allVerts.size() / 3);
-        allVerts.append(meshData.solidVerts);
-
-        float* verts = allVerts.getCArray();
-        int* tris = allTris.getCArray();
-
-        for (int i = 0; i < allVerts.size() / 3; i++)
-            fprintf(objFile, "v %f %f %f\n", verts[i*3], verts[i*3 + 1], verts[i*3 + 2]);
-
-        for (int i = 0; i < allTris.size() / 3; i++)
-            fprintf(objFile, "f %i %i %i\n", tris[i*3] + 1, tris[i*3 + 1] + 1, tris[i*3 + 2] + 1);
 
         fclose(objFile);
     }

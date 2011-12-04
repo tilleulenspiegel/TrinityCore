@@ -25,8 +25,10 @@
 
 #include "TerrainBuilder.h"
 #include "IntermediateValues.h"
+
 #include "IVMapManager.h"
 #include "WorldModel.h"
+
 #include "Recast.h"
 #include "DetourNavMesh.h"
 
@@ -37,7 +39,6 @@ using namespace VMAP;
 namespace Pathfinding
 {
     typedef map<uint32,set<uint32>*> TileList;
-
     struct Tile
     {
         Tile() : chf(NULL), solid(NULL), cset(NULL), pmesh(NULL), dmesh(NULL) {}
@@ -60,22 +61,21 @@ namespace Pathfinding
     {
         public:
             MapBuilder(float maxWalkableAngle   = 60.f,
-                       bool skipLiquid          = false,
-                       bool skipContinents      = false,
-                       bool skipJunkMaps        = true,
-                       bool skipBattlegrounds   = true,
-                       bool debugOutput         = false,
-                       bool bigBaseUnit         = false,
-                       const char* offMeshFilePath = NULL);
+                bool skipLiquid          = false,
+                bool skipContinents      = false,
+                bool skipJunkMaps        = true,
+                bool skipBattlegrounds   = false,
+                bool debugOutput         = false,
+                bool bigBaseUnit         = false,
+                const char* offMeshFilePath = NULL);
 
             ~MapBuilder();
 
             // builds all mmap tiles for the specified map id (ignores skip settings)
-            // TODO: it is pretty much the same code as buildTile()
             void buildMap(uint32 mapID);
 
-            // builds an mmap tile for the specified map tile (ignores skip settings)
-            void buildTile(uint32 mapID, uint32 tileX, uint32 tileY);
+            // builds an mmap tile for the specified map and its mesh
+            void buildSingleTile(uint32 mapID, uint32 tileX, uint32 tileY);
 
             // builds list of maps, then builds all of mmap tiles (based on the skip settings)
             void buildAllMaps();
@@ -85,19 +85,23 @@ namespace Pathfinding
             void discoverTiles();
             set<uint32>* getTileList(uint32 mapID);
 
-            // move map building
             void buildNavMesh(uint32 mapID, dtNavMesh* &navMesh);
+
+            void buildTile(uint32 mapID, uint32 tileX, uint32 tileY, dtNavMesh* navMesh);
+
+            // move map building
             void buildMoveMapTile(uint32 mapID,
-                                  uint32 tileX,
-                                  uint32 tileY,
-                                  MeshData meshData,
-                                  float bmin[3],
-                                  float bmax[3],
-                                  dtNavMesh* navMesh);
+                uint32 tileX,
+                uint32 tileY,
+                MeshData &meshData,
+                float bmin[3],
+                float bmax[3],
+                dtNavMesh* navMesh);
 
             void getTileBounds(uint32 tileX, uint32 tileY,
-                               float* verts, int vertCount,
-                               float* bmin, float* bmax);
+                float* verts, int vertCount,
+                float* bmin, float* bmax);
+            void getGridBounds(uint32 mapID, uint32 &minX, uint32 &minY, uint32 &maxX, uint32 &maxY);
 
             bool shouldSkipMap(uint32 mapID);
             bool isTransportMap(uint32 mapID);
@@ -105,6 +109,7 @@ namespace Pathfinding
 
             TerrainBuilder* m_terrainBuilder;
             TileList m_tiles;
+
             bool m_debugOutput;
 
             const char* m_offMeshFilePath;

@@ -18,30 +18,29 @@
 
 #include "PathCommon.h"
 #include "MapBuilder.h"
+
 #include "MapTree.h"
 #include "ModelInstance.h"
+
 #include "DetourNavMeshBuilder.h"
 #include "DetourCommon.h"
-#include "LoginDatabase.h"
-#include "Timer.h"
-
-LoginDatabaseWorkerPool LoginDatabase; //need for Make Linker Happy!
 
 using namespace VMAP;
 
 namespace Pathfinding
 {
     MapBuilder::MapBuilder(float maxWalkableAngle, bool skipLiquid,
-                           bool skipContinents, bool skipJunkMaps, bool skipBattlegrounds,
-                           bool debugOutput, bool bigBaseUnit, const char* offMeshFilePath) :
-                           m_terrainBuilder(NULL),
-                           m_debugOutput        (debugOutput),
-                           m_skipContinents     (skipContinents),
-                           m_skipJunkMaps       (skipJunkMaps),
-                           m_skipBattlegrounds  (skipBattlegrounds),
-                           m_maxWalkableAngle   (maxWalkableAngle),
-                           m_rcContext          (NULL),
-                           m_offMeshFilePath    (offMeshFilePath)
+        bool skipContinents, bool skipJunkMaps, bool skipBattlegrounds,
+        bool debugOutput, bool bigBaseUnit, const char* offMeshFilePath) :
+    m_terrainBuilder(NULL),
+        m_debugOutput        (debugOutput),
+        m_skipContinents     (skipContinents),
+        m_skipJunkMaps       (skipJunkMaps),
+        m_skipBattlegrounds  (skipBattlegrounds),
+        m_maxWalkableAngle   (maxWalkableAngle),
+        m_bigBaseUnit        (bigBaseUnit),
+        m_rcContext          (NULL),
+        m_offMeshFilePath    (offMeshFilePath)
     {
         m_terrainBuilder = new TerrainBuilder(skipLiquid);
 
@@ -50,6 +49,7 @@ namespace Pathfinding
         discoverTiles();
     }
 
+    /**************************************************************************/
     MapBuilder::~MapBuilder()
     {
         for (TileList::iterator it = m_tiles.begin(); it != m_tiles.end(); ++it)
@@ -57,12 +57,12 @@ namespace Pathfinding
             (*it).second->clear();
             delete (*it).second;
         }
-        m_tiles.clear();
 
         delete m_terrainBuilder;
         delete m_rcContext;
     }
 
+    /**************************************************************************/
     void MapBuilder::discoverTiles()
     {
         vector<string> files;
@@ -127,17 +127,19 @@ namespace Pathfinding
         printf("found %u.\n\n", count);
     }
 
+    /**************************************************************************/
     set<uint32>* MapBuilder::getTileList(uint32 mapID)
     {
         TileList::iterator itr = m_tiles.find(mapID);
         if (itr != m_tiles.end())
             return (*itr).second;
 
-        set<uint32>* tiles = new set<uint32>;
+        set<uint32>* tiles = new set<uint32>();
         m_tiles.insert(pair<uint32, set<uint32>*>(mapID, tiles));
         return tiles;
     }
 
+    /**************************************************************************/
     void MapBuilder::buildAllMaps()
     {
         for (TileList::iterator it = m_tiles.begin(); it != m_tiles.end(); ++it)
@@ -148,58 +150,80 @@ namespace Pathfinding
         }
     }
 
+    /**************************************************************************/
+    void MapBuilder::getGridBounds(uint32 mapID, uint32 &minX, uint32 &minY, uint32 &maxX, uint32 &maxY)
+    {
+        maxX = INT_MAX;
+        maxY = INT_MAX;
+        minX = INT_MIN;
+        minY = INT_MIN;
+
+        float bmin[3], bmax[3], lmin[3], lmax[3];
+        MeshData meshData;
+
+        // make sure we process maps which don't have tiles
+        // initialize the static tree, which loads WDT models
+        if(!m_terrainBuilder->loadVMap(mapID, 64, 64, meshData))
+            return;
+
+        // get the coord bounds of the model data
+        if (meshData.solidVerts.size() + meshData.liquidVerts.size() == 0)
+            return;
+
+        // get the coord bounds of the model data
+        if (meshData.solidVerts.size() && meshData.liquidVerts.size())
+        {
+            rcCalcBounds(meshData.solidVerts.getCArray(), meshData.solidVerts.size() / 3, bmin, bmax);
+            rcCalcBounds(meshData.liquidVerts.getCArray(), meshData.liquidVerts.size() / 3, lmin, lmax);
+            rcVmin(bmin, lmin);
+            rcVmax(bmax, lmax);
+        }
+        else if (meshData.solidVerts.size())
+            rcCalcBounds(meshData.solidVerts.getCArray(), meshData.solidVerts.size() / 3, bmin, bmax);
+        else
+            rcCalcBounds(meshData.liquidVerts.getCArray(), meshData.liquidVerts.size() / 3, lmin, lmax);
+
+        // convert coord bounds to grid bounds
+        maxX = 32 - bmin[0] / GRID_SIZE;
+        maxY = 32 - bmin[2] / GRID_SIZE;
+        minX = 32 - bmax[0] / GRID_SIZE;
+        minY = 32 - bmax[2] / GRID_SIZE;
+    }
+
+    /**************************************************************************/
+    void MapBuilder::buildSingleTile(uint32 mapID, uint32 tileX, uint32 tileY)
+    {
+        dtNavMesh* navMesh = NULL;
+        buildNavMesh(mapID, navMesh);
+        if (!navMesh)
+        {
+            printf("Failed creating navmesh!              \n");
+            return;
+        }
+
+        buildTile(mapID, tileX, tileY, navMesh);
+        dtFreeNavMesh(navMesh);
+    }
+
+    /**************************************************************************/
     void MapBuilder::buildMap(uint32 mapID)
     {
         printf("Building map %03u:\n", mapID);
 
         set<uint32>* tiles = getTileList(mapID);
 
-        // vars that are used in multiple locations...
-        uint32 tileX, tileY;
-        float bmin[3], bmax[3], lmin[3], lmax[3];
-
-        // scope the model data arrays
-        do
+        // make sure we process maps which don't have tiles
+        if (!tiles->size())
         {
-            MeshData meshData;
+            // convert coord bounds to grid bounds
+            uint32 minX, minY, maxX, maxY;
+            getGridBounds(mapID, minX, minY, maxX, maxY);
 
-            // make sure we process maps which don't have tiles
-            if (!tiles->size())
-            {
-                // initialize the static tree, which loads WDT models
-                if (!m_terrainBuilder->loadVMap(mapID, 64, 64, meshData))
-                    continue;
-
-                if (!(meshData.solidVerts.size() || meshData.liquidVerts.size()))
-                    continue;
-
-                // get the coord bounds of the model data
-                if (meshData.solidVerts.size() && meshData.liquidVerts.size())
-                {
-                    rcCalcBounds(meshData.solidVerts.getCArray(), meshData.solidVerts.size() / 3, bmin, bmax);
-                    rcCalcBounds(meshData.liquidVerts.getCArray(), meshData.liquidVerts.size() / 3, lmin, lmax);
-                    rcVmin(bmin, lmin);
-                    rcVmax(bmax, lmax);
-                }
-                else if (meshData.solidVerts.size())
-                    rcCalcBounds(meshData.solidVerts.getCArray(), meshData.solidVerts.size() / 3, bmin, bmax);
-                else
-                    rcCalcBounds(meshData.liquidVerts.getCArray(), meshData.liquidVerts.size() / 3, lmin, lmax);
-
-                // convert coord bounds to grid bounds
-                uint32 minX, minY, maxX, maxY;
-                maxX = 32 - bmin[0] / GRID_SIZE;
-                maxY = 32 - bmin[2] / GRID_SIZE;
-                minX = 32 - bmax[0] / GRID_SIZE;
-                minY = 32 - bmax[2] / GRID_SIZE;
-
-                // add all tiles within bounds to tile list.
-                for (uint32 i = minX; i <= maxX; ++i)
-                    for (uint32 j = minY; j <= maxY; ++j)
-                        tiles->insert(StaticMapTree::packTileID(i, j));
-            }
+            // add all tiles within bounds to tile list.
+            for (uint32 i = minX; i <= maxX; ++i)
+                for (uint32 j = minY; j <= maxY; ++j)
+                    tiles->insert(StaticMapTree::packTileID(i, j));
         }
-        while (0);
 
         if (!tiles->size())
             return;
@@ -217,54 +241,15 @@ namespace Pathfinding
         printf("We have %u tiles.                          \n", (unsigned int)tiles->size());
         for (set<uint32>::iterator it = tiles->begin(); it != tiles->end(); ++it)
         {
+            uint32 tileX, tileY;
+
             // unpack tile coords
             StaticMapTree::unpackTileID((*it), tileX, tileY);
 
             if (shouldSkipTile(mapID, tileX, tileY))
                 continue;
 
-            G3D::Array<float> allVerts;
-            G3D::Array<int> allTris;
-            char tileString[10];
-
-            sprintf(tileString, "[%02u,%02u]: ", tileX, tileY);
-
-            MeshData meshData;
-
-            // get heightmap data
-            printf("%s Loading heightmap...                           \r", tileString);
-            m_terrainBuilder->loadMap(mapID, tileX, tileY, meshData);
-
-            // get model data
-            printf("%s Loading models...                              \r", tileString);
-            m_terrainBuilder->loadVMap(mapID, tileY, tileX, meshData);
-
-            // we only want tiles that people can actually walk on
-            if (!meshData.solidVerts.size() && !meshData.liquidVerts.size())
-                continue;
-
-            printf("%s Aggregating mesh data...                        \r", tileString);
-
-            // remove unused vertices
-            TerrainBuilder::cleanVertices(meshData.solidVerts, meshData.solidTris);
-            TerrainBuilder::cleanVertices(meshData.liquidVerts, meshData.liquidTris);
-
-            // gather all mesh data for final data check, and bounds calculation
-            allTris.append(meshData.liquidTris);
-            allVerts.append(meshData.liquidVerts);
-            TerrainBuilder::copyIndices(allTris, meshData.solidTris, allVerts.size() / 3);
-            allVerts.append(meshData.solidVerts);
-
-            if (!allVerts.size() || !allTris.size())
-                continue;
-
-            // get bounds of current tile
-            getTileBounds(tileX, tileY, allVerts.getCArray(), allVerts.size() / 3, bmin, bmax);
-
-            m_terrainBuilder->loadOffMeshConnections(mapID, tileX, tileY, meshData, m_offMeshFilePath);
-
-            // build navmesh tile
-            buildMoveMapTile(mapID, tileX, tileY, meshData, bmin, bmax, navMesh);
+            buildTile(mapID, tileX, tileY, navMesh);
         }
 
         dtFreeNavMesh(navMesh);
@@ -272,110 +257,46 @@ namespace Pathfinding
         printf("Complete!                               \n\n");
     }
 
-    void MapBuilder::buildTile(uint32 mapID, uint32 tileX, uint32 tileY)
+    /**************************************************************************/
+    void MapBuilder::buildTile(uint32 mapID, uint32 tileX, uint32 tileY, dtNavMesh* navMesh)
     {
         printf("Building map %03u, tile [%02u,%02u]\n", mapID, tileX, tileY);
 
-        float bmin[3], bmax[3], lmin[3], lmax[3];
         MeshData meshData;
 
-        // make sure we process maps which don't have tiles
-        // initialize the static tree, which loads WDT models
-        m_terrainBuilder->loadVMap(mapID, 64, 64, meshData);
+        // get heightmap data
+        m_terrainBuilder->loadMap(mapID, tileX, tileY, meshData);
 
-        // get the coord bounds of the model data
-        if (meshData.solidVerts.size() || meshData.liquidVerts.size())
-        {
-            // get the coord bounds of the model data
-            if (meshData.solidVerts.size() && meshData.liquidVerts.size())
-            {
-                rcCalcBounds(meshData.solidVerts.getCArray(), meshData.solidVerts.size() / 3, bmin, bmax);
-                rcCalcBounds(meshData.liquidVerts.getCArray(), meshData.liquidVerts.size() / 3, lmin, lmax);
-                rcVmin(bmin, lmin);
-                rcVmax(bmax, lmax);
-            }
-            else if (meshData.solidVerts.size())
-                rcCalcBounds(meshData.solidVerts.getCArray(), meshData.solidVerts.size() / 3, bmin, bmax);
-            else
-                rcCalcBounds(meshData.liquidVerts.getCArray(), meshData.liquidVerts.size() / 3, lmin, lmax);
+        // get model data
+        m_terrainBuilder->loadVMap(mapID, tileY, tileX, meshData);
 
-            // convert coord bounds to grid bounds
-            uint32 minX, minY, maxX, maxY;
-            maxX = 32 - bmin[0] / GRID_SIZE;
-            maxY = 32 - bmin[2] / GRID_SIZE;
-            minX = 32 - bmax[0] / GRID_SIZE;
-            minY = 32 - bmax[2] / GRID_SIZE;
-
-            // if specified tile is outside of bounds, give up now
-            if (tileX < minX || tileX > maxX)
-                return;
-            if (tileY < minY || tileY > maxY)
-                return;
-        }
-
-        // build navMesh
-        dtNavMesh* navMesh = NULL;
-        buildNavMesh(mapID, navMesh);
-        if (!navMesh)
-        {
-            printf("Failed creating navmesh!              \n");
+        // if there is no data, give up now
+        if (!meshData.solidVerts.size() && !meshData.liquidVerts.size())
             return;
-        }
 
+        // remove unused vertices
+        TerrainBuilder::cleanVertices(meshData.solidVerts, meshData.solidTris);
+        TerrainBuilder::cleanVertices(meshData.liquidVerts, meshData.liquidTris);
+
+        // gather all mesh data for final data check, and bounds calculation
         G3D::Array<float> allVerts;
-        G3D::Array<int> allTris;
-        char tileString[10];
-        sprintf(tileString, "[%02u,%02u]: ", tileX, tileY);
+        allVerts.append(meshData.liquidVerts);
+        allVerts.append(meshData.solidVerts);
 
-        do
-        {
-            MeshData meshData;
+        if (!allVerts.size())
+            return;
 
-            // get heightmap data
-            printf("%s Loading heightmap...                           \r", tileString);
-            m_terrainBuilder->loadMap(mapID, tileX, tileY, meshData);
+        // get bounds of current tile
+        float bmin[3], bmax[3];
+        getTileBounds(tileX, tileY, allVerts.getCArray(), allVerts.size() / 3, bmin, bmax);
 
-            // get model data
-            printf("%sLoading models...                              \r", tileString);
-            m_terrainBuilder->loadVMap(mapID, tileY, tileX, meshData);
+        m_terrainBuilder->loadOffMeshConnections(mapID, tileX, tileY, meshData, m_offMeshFilePath);
 
-            // if there is no data, give up now
-            if (!meshData.solidVerts.size() && !meshData.liquidVerts.size())
-                continue;
-
-            printf("%s Aggregating mesh data...                        \r", tileString);
-
-            // remove unused vertices
-            TerrainBuilder::cleanVertices(meshData.solidVerts, meshData.solidTris);
-            TerrainBuilder::cleanVertices(meshData.liquidVerts, meshData.liquidTris);
-
-            // gather all mesh data for final data check, and bounds calculation
-            allTris.append(meshData.liquidTris);
-            allVerts.append(meshData.liquidVerts);
-            TerrainBuilder::copyIndices(allTris, meshData.solidTris, allVerts.size() / 3);
-            allVerts.append(meshData.solidVerts);
-
-            if (!allVerts.size() || !allTris.size())
-                continue;
-
-            // get bounds of current tile
-            getTileBounds(tileX, tileY, allVerts.getCArray(), allVerts.size() / 3, bmin, bmax);
-
-            allVerts.clear();
-            allTris.clear();
-
-            m_terrainBuilder->loadOffMeshConnections(mapID, tileX, tileY, meshData, m_offMeshFilePath);
-
-            // build navmesh tile
-            buildMoveMapTile(mapID, tileX, tileY, meshData, bmin, bmax, navMesh);
-        }
-        while (0);
-
-        dtFreeNavMesh(navMesh);
-
-        printf("%sComplete!                                      \n\n", tileString);
+        // build navmesh tile
+        buildMoveMapTile(mapID, tileX, tileY, meshData, bmin, bmax, navMesh);
     }
 
+    /**************************************************************************/
     void MapBuilder::buildNavMesh(uint32 mapID, dtNavMesh* &navMesh)
     {
         set<uint32>* tiles = getTileList(mapID);
@@ -410,9 +331,8 @@ namespace Pathfinding
                 tileYMin = tileY;
         }
 
-        float bmin[3], bmax[3];
-
         // use Max because '32 - tileX' is negative for values over 32
+        float bmin[3], bmax[3];
         getTileBounds(tileXMax, tileYMax, NULL, 0, bmin, bmax);
 
         /***       now create the navmesh       ***/
@@ -452,9 +372,10 @@ namespace Pathfinding
         fclose(file);
     }
 
+    /**************************************************************************/
     void MapBuilder::buildMoveMapTile(uint32 mapID, uint32 tileX, uint32 tileY,
-                                      MeshData meshData, float bmin[3], float bmax[3],
-                                      dtNavMesh* navMesh)
+        MeshData &meshData, float bmin[3], float bmax[3],
+        dtNavMesh* navMesh)
     {
         // console output
         char tileString[10];
@@ -500,11 +421,11 @@ namespace Pathfinding
         config.maxEdgeLen = VERTEX_PER_TILE + 1;        //anything bigger than tileSize
         config.walkableHeight = m_bigBaseUnit ? 3 : 6;
         config.walkableClimb = m_bigBaseUnit ? 2 : 4;   // keep less than walkableHeight
-        config.minRegionArea = rcSqr(50);
-        config.mergeRegionArea = rcSqr(40);
-        config.maxSimplificationError = 3.0f;       // eliminates most jagged edges (tinny polygons)
+        config.minRegionArea = rcSqr(60);
+        config.mergeRegionArea = rcSqr(50);
+        config.maxSimplificationError = 2.0f;       // eliminates most jagged edges (tinny polygons)
         config.detailSampleDist = config.cs * 64;
-        config.detailSampleMaxError = config.ch * 4;
+        config.detailSampleMaxError = config.ch * 2;
 
         // this sets the dimensions of the heightfield - should maybe happen before border padding
         rcCalcGridSize(config.bmin, config.bmax, config.cs, &config.width, &config.height);
@@ -562,33 +483,33 @@ namespace Pathfinding
                 tile.chf = rcAllocCompactHeightfield();
                 if (!tile.chf || !rcBuildCompactHeightfield(m_rcContext, tileCfg.walkableHeight, tileCfg.walkableClimb, *tile.solid, *tile.chf))
                 {
-                    printf("%s Failed compacting heightfield!            \n", tileString);
+                    printf("%sFailed compacting heightfield!            \n", tileString);
                     continue;
                 }
 
                 // build polymesh intermediates
                 if (!rcErodeWalkableArea(m_rcContext, config.walkableRadius, *tile.chf))
                 {
-                    printf("%s Failed eroding area!                    \n", tileString);
+                    printf("%sFailed eroding area!                    \n", tileString);
                     continue;
                 }
 
                 if (!rcBuildDistanceField(m_rcContext, *tile.chf))
                 {
-                    printf("%s Failed building distance field!         \n", tileString);
+                    printf("%sFailed building distance field!         \n", tileString);
                     continue;
                 }
 
                 if (!rcBuildRegions(m_rcContext, *tile.chf, tileCfg.borderSize, tileCfg.minRegionArea, tileCfg.mergeRegionArea))
                 {
-                    printf("%s Failed building regions!                \n", tileString);
+                    printf("%sFailed building regions!                \n", tileString);
                     continue;
                 }
 
                 tile.cset = rcAllocContourSet();
                 if (!tile.cset || !rcBuildContours(m_rcContext, *tile.chf, tileCfg.maxSimplificationError, tileCfg.maxEdgeLen, *tile.cset))
                 {
-                    printf("%s Failed building contours!               \n", tileString);
+                    printf("%sFailed building contours!               \n", tileString);
                     continue;
                 }
 
@@ -596,14 +517,14 @@ namespace Pathfinding
                 tile.pmesh = rcAllocPolyMesh();
                 if (!tile.pmesh || !rcBuildPolyMesh(m_rcContext, *tile.cset, tileCfg.maxVertsPerPoly, *tile.pmesh))
                 {
-                    printf("%s Failed building polymesh!               \n", tileString);
+                    printf("%sFailed building polymesh!               \n", tileString);
                     continue;
                 }
 
                 tile.dmesh = rcAllocPolyMeshDetail();
                 if (!tile.dmesh || !rcBuildPolyMeshDetail(m_rcContext, *tile.pmesh, *tile.chf, tileCfg.detailSampleDist, tileCfg    .detailSampleMaxError, *tile.dmesh))
                 {
-                    printf("%s Failed building polymesh detail!        \n", tileString);
+                    printf("%sFailed building polymesh detail!        \n", tileString);
                     continue;
                 }
 
@@ -668,6 +589,7 @@ namespace Pathfinding
         // free things up
         delete [] pmmerge;
         delete [] dmmerge;
+
         delete [] tiles;
 
         // remove padding for extraction
@@ -742,11 +664,11 @@ namespace Pathfinding
                 // loaded but those models don't span into this tile
 
                 // message is an annoyance
-                //printf("%s No vertices to build tile!              \n", tileString);
+                //printf("%sNo vertices to build tile!              \n", tileString);
                 continue;
             }
             if (!params.polyCount || !params.polys ||
-                    TILES_PER_MAP*TILES_PER_MAP == params.polyCount)
+                TILES_PER_MAP*TILES_PER_MAP == params.polyCount)
             {
                 // we have flat tiles with no actual geometry - don't build those, its useless
                 // keep in mind that we do output those into debug info
@@ -823,6 +745,7 @@ namespace Pathfinding
         }
     }
 
+    /**************************************************************************/
     void MapBuilder::getTileBounds(uint32 tileX, uint32 tileY, float* verts, int vertCount, float* bmin, float* bmax)
     {
         // this is for elevation
@@ -841,97 +764,100 @@ namespace Pathfinding
         bmin[2] = bmax[2] - GRID_SIZE;
     }
 
+    /**************************************************************************/
     bool MapBuilder::shouldSkipMap(uint32 mapID)
     {
         if (m_skipContinents)
             switch (mapID)
-            {
-                case 0:
-                case 1:
-                case 530:
-                case 571:
-                    return true;
-                default:
-                    break;
-            }
+        {
+            case 0:
+            case 1:
+            case 530:
+            case 571:
+                return true;
+            default:
+                break;
+        }
 
         if (m_skipJunkMaps)
             switch (mapID)
-            {
-                case 13:    // test.wdt
-                case 25:    // ScottTest.wdt
-                case 29:    // Test.wdt
-                case 42:    // Colin.wdt
-                case 169:   // EmeraldDream.wdt (unused, and very large)
-                case 451:   // development.wdt
-                case 573:   // ExteriorTest.wdt
-                case 597:   // CraigTest.wdt
-                case 605:   // development_nonweighted.wdt
-                case 606:   // QA_DVD.wdt
+        {
+            case 13:    // test.wdt
+            case 25:    // ScottTest.wdt
+            case 29:    // Test.wdt
+            case 42:    // Colin.wdt
+            case 169:   // EmeraldDream.wdt (unused, and very large)
+            case 451:   // development.wdt
+            case 573:   // ExteriorTest.wdt
+            case 597:   // CraigTest.wdt
+            case 605:   // development_nonweighted.wdt
+            case 606:   // QA_DVD.wdt
+                return true;
+            default:
+                if (isTransportMap(mapID))
                     return true;
-                default:
-                    if (isTransportMap(mapID))
-                        return true;
-                    break;
-            }
+                break;
+        }
 
         if (m_skipBattlegrounds)
             switch (mapID)
-            {
-                case 30:    // AV
-                case 37:    // ?
-                case 489:   // WSG
-                case 529:   // AB
-                case 566:   // EotS
-                case 607:   // SotA
-                case 628:   // IoC
-                    return true;
-                default:
-                    break;
-            }
+        {
+            case 30:    // AV
+            case 37:    // ?
+            case 489:   // WSG
+            case 529:   // AB
+            case 566:   // EotS
+            case 607:   // SotA
+            case 628:   // IoC
+                return true;
+            default:
+                break;
+        }
 
         return false;
     }
 
+    /**************************************************************************/
     bool MapBuilder::isTransportMap(uint32 mapID)
     {
         switch (mapID)
         {
             // transport maps
-            case 582:
-            case 584:
-            case 586:
-            case 587:
-            case 588:
-            case 589:
-            case 590:
-            case 591:
-            case 592:
-            case 593:
-            case 594:
-            case 596:
-            case 610:
-            case 612:
-            case 613:
-            case 614:
-            case 620:
-            case 621:
-            case 622:
-            case 623:
-            case 641:
-            case 642:
-            case 647:
-            case 672:
-            case 673:
-            case 712:
-            case 713:
-            case 718:
-                return true;
-            default:
-                return false;
+        case 582:
+        case 584:
+        case 586:
+        case 587:
+        case 588:
+        case 589:
+        case 590:
+        case 591:
+        case 592:
+        case 593:
+        case 594:
+        case 596:
+        case 610:
+        case 612:
+        case 613:
+        case 614:
+        case 620:
+        case 621:
+        case 622:
+        case 623:
+        case 641:
+        case 642:
+        case 647:
+        case 672:
+        case 673:
+        case 712:
+        case 713:
+        case 718:
+            return true;
+        default:
+            return false;
         }
     }
 
+    /**************************************************************************/
     bool MapBuilder::shouldSkipTile(uint32 mapID, uint32 tileX, uint32 tileY)
     {
         char fileName[255];
@@ -952,4 +878,5 @@ namespace Pathfinding
 
         return true;
     }
+
 }
