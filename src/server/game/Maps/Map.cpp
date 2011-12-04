@@ -2715,7 +2715,7 @@ namespace MMAP
 
     bool MMapFactory::IsPathfindingEnabled(uint32 mapId)
     {
-        return sWorld->getConfig(CONFIG_BOOL_MMAP_ENABLED)
+        return sWorld->getBoolConfig(CONFIG_ENABLE_MMAPS)
             && g_mmapDisabledIds->find(mapId) == g_mmapDisabledIds->end();
     }
 
@@ -2753,7 +2753,7 @@ namespace MMAP
         // load and init dtNavMesh - read parameters from file
         uint32 pathLen = sWorld->GetDataPath().length() + strlen("mmaps/%03i.mmap")+1;
         char *fileName = new char[pathLen];
-        snprintf(fileName, pathLen, (sWorld.GetDataPath()+"mmaps/%03i.mmap").c_str(), mapId);
+        snprintf(fileName, pathLen, (sWorld->GetDataPath()+"mmaps/%03i.mmap").c_str(), mapId);
 
         FILE* file = fopen(fileName, "rb");
         if (!file)
@@ -2779,7 +2779,7 @@ namespace MMAP
 
         delete [] fileName;
 
-        sLog.outDetail("MMAP:loadMapData: Loaded %03i.mmap", mapId);
+        sLog->outDetail("MMAP:loadMapData: Loaded %03i.mmap", mapId);
 
         // store inside our map list
         MMapData* mmap_data = new MMapData(mesh);
@@ -2832,13 +2832,13 @@ namespace MMAP
 
         if (fileHeader.mmapMagic != MMAP_MAGIC)
         {
-            sLog.outError("MMAP:loadMap: Bad header in mmap %03u%02i%02i.mmtile", mapId, x, y);
+            sLog->outError("MMAP:loadMap: Bad header in mmap %03u%02i%02i.mmtile", mapId, x, y);
             return false;
         }
 
         if (fileHeader.mmapVersion != MMAP_VERSION)
         {
-            sLog.outError("MMAP:loadMap: %03u%02i%02i.mmtile was built with generator v%i, expected v%i",
+            sLog->outError("MMAP:loadMap: %03u%02i%02i.mmtile was built with generator v%i, expected v%i",
                                                 mapId, x, y, fileHeader.mmapVersion, MMAP_VERSION);
             return false;
         }

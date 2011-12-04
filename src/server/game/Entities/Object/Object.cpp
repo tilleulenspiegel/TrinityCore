@@ -2511,7 +2511,7 @@ void WorldObject::GetNearPoint2D(float &x, float &y, float distance2d, float abs
 void WorldObject::GetNearPoint(WorldObject const* /*searcher*/, float &x, float &y, float &z, float searcher_size, float distance2d, float absAngle) const
 {
     GetNearPoint2D(x, y, distance2d+searcher_size, absAngle);
-    z = GetPositionZ();
+    const float init_z = z = GetPositionZ();
     UpdateGroundPositionZ(x, y, z);
 
     /*
@@ -2527,8 +2527,10 @@ void WorldObject::GetNearPoint(WorldObject const* /*searcher*/, float &x, float 
     float first_y = y;
     bool first_los_conflict = false;                        // first point LOS problems
 
+    const float dist = distance2d + searcher_bounding_radius + GetObjectBoundingRadius();
+
     // prepare selector for work
-    ObjectPosSelector selector(GetPositionX(), GetPositionY(), GetObjectSize(), distance2d+searcher_size);
+    ObjectPosSelector selector(GetPositionX(), GetPositionY(), dist, searcher_bounding_radius);
 
     // adding used positions around object
     {
@@ -2552,7 +2554,7 @@ void WorldObject::GetNearPoint(WorldObject const* /*searcher*/, float &x, float 
     {
         UpdateGroundPositionZ(x, y, z);                       // update to LOS height if available
 
-        if (IsWithinLOS(x, y, z))
+        if (fabs(init_z - z) < dist && IsWithinLOS(x, y, z))
             return;
 
         first_los_conflict = true;                          // first point have LOS problems
@@ -2567,7 +2569,7 @@ void WorldObject::GetNearPoint(WorldObject const* /*searcher*/, float &x, float 
         z = GetPositionZ();
         UpdateGroundPositionZ(x, y, z);                       // update to LOS height if available
 
-        if (IsWithinLOS(x, y, z))
+        if (fabs(init_z - z) < dist && IsWithinLOS(x, y, z))
             return;
     }
 
@@ -2581,7 +2583,7 @@ void WorldObject::GetNearPoint(WorldObject const* /*searcher*/, float &x, float 
         z = GetPositionZ();
         UpdateGroundPositionZ(x, y, z);                       // update to LOS height if available
 
-        if (IsWithinLOS(x, y, z))
+        if (fabs(init_z - z) < dist && IsWithinLOS(x, y, z))
             return;
     }
 

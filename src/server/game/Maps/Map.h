@@ -19,6 +19,11 @@
 #ifndef TRINITY_MAP_H
 #define TRINITY_MAP_H
 
+// Pathfinding
+#include "DetourAlloc.h"
+#include "DetourNavMesh.h"
+#include "DetourNavMeshQuery.h"
+
 #include "Define.h"
 #include <ace/RW_Thread_Mutex.h>
 #include <ace/Thread_Mutex.h>
