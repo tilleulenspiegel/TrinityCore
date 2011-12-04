@@ -48,6 +48,7 @@
 #include "LootMgr.h"
 #include "ItemEnchantmentMgr.h"
 #include "MapManager.h"
+#include "Map.h"
 #include "CreatureAIRegistry.h"
 #include "BattlegroundMgr.h"
 #include "OutdoorPvPMgr.h"
@@ -131,6 +132,7 @@ World::~World()
         delete command;
 
     VMAP::VMapFactory::clear();
+    MMAP::MMapFactory::clear();
 
     //TODO free addSessQueue
 }
@@ -1134,6 +1136,14 @@ void World::LoadConfigSettings(bool reload)
     sLog->outString("WORLD: VMap support included. LineOfSight:%i, getHeight:%i, indoorCheck:%i PetLOS:%i", enableLOS, enableHeight, enableIndoor, enablePetLOS);
     sLog->outString("WORLD: VMap data directory is: %svmaps", m_dataPath.c_str());
 
+    bool EnablePathfinding = ConfigMgr::GetBoolDefault("mmap.enablePathFinding", true);
+    std::string ignoreMapIds = ConfigMgr::GetStringDefault("mmap.ignoreMapIds", "");
+
+    MMAP::MMapFactory::IsPathfindingEnabled(EnablePathfinding);
+    MMAP::MMapFactory::preventPathfindingOnMaps(ignoreMapIds.c_str());
+    sLog->outString("WORLD: MMap support active %i", EnablePathfinding);
+    sLog->outString("WORLD: MMap data directory is: %smmaps", m_dataPath.c_str());
+
     m_int_configs[CONFIG_MAX_WHO] = ConfigMgr::GetIntDefault("MaxWhoListReturns", 49);
     m_bool_configs[CONFIG_PET_LOS] = ConfigMgr::GetBoolDefault("vmap.petLOS", true);
     m_bool_configs[CONFIG_START_ALL_SPELLS] = ConfigMgr::GetBoolDefault("PlayerStart.AllSpells", false);
@@ -1203,6 +1213,9 @@ void World::SetInitialWorldSettings()
 
     ///- Initialize config settings
     LoadConfigSettings();
+
+    ///- Initialize detour memory management
+    dtAllocSetCustom(dtCustomAlloc, dtCustomFree);
 
     ///- Initialize Allowed Security Level
     LoadDBAllowedSecurityLevel();
