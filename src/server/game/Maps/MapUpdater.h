@@ -36,7 +36,7 @@ class MapUpdater
 {
     public:
 
-        MapUpdater() : m_broken(false);
+        MapUpdater();
         virtual ~MapUpdater();
 
         friend class MapUpdateRequest;
