@@ -223,6 +223,8 @@ i_scriptLock(false)
     Map::InitVisibilityDistance();
 
     sScriptMgr->OnCreateMap(this);
+
+    SetBroken(false);
 }
 
 void Map::InitVisibilityDistance()
@@ -2645,4 +2647,54 @@ void Map::UpdateIteratorBack(Player* player)
 {
     if (m_mapRefIter == player->GetMapRef())
         m_mapRefIter = m_mapRefIter->nocheck_prev();
+}
+
+void Map::ForcedUnload()
+{
+    sLog->outError("Map::ForcedUnload called for map %u instance %u. Map crushed. Cleaning up...", GetId(), GetInstanceId());
+    Map::PlayerList const& pList = GetPlayers();
+    for (PlayerList::const_iterator itr = pList.begin(); itr != pList.end(); ++itr)
+    {
+        Player* player = itr->getSource();
+        if (!player || !player->GetSession())
+            continue;
+
+        switch (sWorld->getIntConfig(CONFIG_UINT32_VMSS_MAPFREEMETHOD))
+        {
+            case 0:
+            {
+                player->RemoveAllAurasOnDeath();
+                if (Pet* pet = player->GetPet())
+                    pet->RemoveAllAurasOnDeath();
+                player->GetSession()->LogoutPlayer(true);
+                break;
+            }
+            case 1:
+            {
+                player->GetSession()->KickPlayer();
+                break;
+            }
+            case 2:
+            {
+                player->GetSession()->LogoutPlayer(false);
+                break;
+            }
+            default:
+                break;
+        }
+    }
+
+    switch (sWorld->getIntConfig(CONFIG_UINT32_VMSS_MAPFREEMETHOD))
+    {
+        case 0:
+            if (InstanceData* iData = GetInstanceData())
+                iData->Save();
+            break;
+        default:
+            break;
+    }
+
+    UnloadAll(true);
+
+    SetBroken(false);
 }

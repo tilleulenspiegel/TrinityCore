@@ -424,6 +424,12 @@ class Map : public GridRefManager<NGridType>
 
         InstanceMap* ToInstanceMap(){ if (IsDungeon())  return reinterpret_cast<InstanceMap*>(this); else return NULL;  }
         const InstanceMap* ToInstanceMap() const { if (IsDungeon())  return (const InstanceMap*)((InstanceMap*)this); else return NULL;  }
+
+        // map restarting system
+        bool const IsBroken() { return m_broken; };
+        void SetBroken( bool _value = true ) { m_broken = _value; };
+        void ForcedUnload();
+
     private:
         void LoadMapAndVMap(int gx, int gy);
         void LoadVMap(int gx, int gy);
@@ -479,6 +485,7 @@ class Map : public GridRefManager<NGridType>
         uint32 i_InstanceId;
         uint32 m_unloadTimer;
         float m_VisibleDistance;
+        bool m_broken;
 
         MapRefManager m_mapRefManager;
         MapRefManager::iterator m_mapRefIter;
