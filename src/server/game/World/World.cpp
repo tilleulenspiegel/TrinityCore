@@ -415,6 +415,14 @@ void World::LoadConfigSettings(bool reload)
     ///- Send server info on login?
     m_int_configs[CONFIG_ENABLE_SINFO_LOGIN] = ConfigMgr::GetIntDefault("Server.LoginInfo", 0);
 
+    // VMSS System
+    m_bool_configs[CONFIG_ENABLE_VMSS] = ConfigMgr::GetBoolDefault("VMSS.Enabled", false);
+    m_int_configs[CONFIG_VMSS_MAXTHREADBREAKS] = ConfigMgr::GetIntDefault("VMSS.MaxThreadBreaks", 5);
+    m_int_configs[CONFIG_VMSS_TBREMTIME] = ConfigMgr::GetIntDefault("VMSS.ThreadBreakRememberTime", 3600);
+    m_int_configs[CONFIG_VMSS_MAPFREEMETHOD] = ConfigMgr::GetIntDefault("VMSS.MapFreeMethod", 0);
+    m_int_configs[CONFIG_VMSS_FREEZECHECKPERIOD] = ConfigMgr::GetIntDefault("VMSS.FreezeCheckPeriod", 1000);
+    m_int_configs[CONFIG_VMSS_FREEZEDETECTTIME] = ConfigMgr::GetIntDefault("VMSS.MapFreezeDetectTime", 1000);
+
     ///- Read all rates from the config file
     rate_values[RATE_HEALTH]      = ConfigMgr::GetFloatDefault("Rate.Health", 1);
     if (rate_values[RATE_HEALTH] < 0)

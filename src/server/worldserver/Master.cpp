@@ -21,6 +21,7 @@
 */
 
 #include <ace/Sig_Handler.h>
+#include <ace/Stack_Trace.h>
 
 #include "Common.h"
 #include "SystemConfig.h"
@@ -35,6 +36,7 @@
 
 #include "CliRunnable.h"
 #include "Log.h"
+#include "MapManager.h"
 #include "Master.h"
 #include "RARunnable.h"
 #include "TCSoap.h"
@@ -59,6 +61,7 @@ class WorldServerSignalHandler : public Trinity::SignalHandler
             {
                 case SIGINT:
                     World::StopNow(RESTART_EXIT_CODE);
+                    signal(s, _OnSignal);
                     break;
                 case SIGTERM:
                 #ifdef _WIN32
@@ -66,6 +69,55 @@ class WorldServerSignalHandler : public Trinity::SignalHandler
                     if (m_ServiceStatus != 1)
                 #endif /* _WIN32 */
                     World::StopNow(SHUTDOWN_EXIT_CODE);
+                    signal(s, _OnSignal);
+                    break;
+                case SIGSEGV:
+                case SIGABRT:
+                case SIGFPE:
+                case SIGUSR1:
+                    if (sWorld->getIntConfig(CONFIG_ENABLE_VMSS))
+                    {
+                        ACE_thread_t const threadId = ACE_OS::thr_self();
+                        sLog->outError("Signal Handler: Signal %.2u received from thread "I64FMT".\r\n",s,threadId);
+                        ACE_Stack_Trace StackTrace;
+                        sLog->outError("\r\n************ BackTrace *************\r\n%s\r\n***********************************\r\n",StackTrace.c_str());
+
+                        if (MapID const* mapPair = sMapMgr->GetMapUpdater()->GetMapPairByThreadId(threadId))
+                        {
+                            sLog->outError("Signal Handler: Thread "I64FMT" is update map %u instance %u",threadId,mapPair->nMapId, mapPair->nInstanceId);
+                            if (Map* map = sMapMgr->FindMap(mapPair->nMapId, mapPair->nInstanceId))
+                                map->SetBroken(true);
+                            sMapMgr->GetMapUpdater()->MapBrokenEvent(mapPair);
+                            if (sMapMgr->GetMapUpdater()->GetMapBrokenData(mapPair)->count > sWorld->getIntConfig(CONFIG_VMSS_MAXTHREADBREAKS))
+                            {
+                                sLog->outError("Signal Handler: Limit of map restarting (map %u instance %u) exceeded. Stopping world!", mapPair->nMapId, mapPair->nInstanceId);
+                                signal(s, SIG_DFL);
+                                ACE_OS::kill(getpid(), s);
+                            }
+                            else
+                           {
+                                sLog->outError("Signal Handler: Restarting virtual map server (map %u instance %u). Count of restarts: %u",mapPair->nMapId, mapPair->nInstanceId, sMapMgr.GetMapUpdater()->GetMapBrokenData(mapPair)->count);
+                                sMapMgr->GetMapUpdater()->unregister_thread(threadId);
+                                sMapMgr->GetMapUpdater()->update_finished();
+                                sMapMgr->GetMapUpdater()->SetBroken(true);
+                                ACE_OS::thr_exit();
+                            }
+                        }
+                        else
+                        {
+                            sLog->outError("Signal Handler: Thread "I64FMT" is not virtual map server. Stopping world.",threadId);
+                            signal(s, SIG_DFL);
+                            ACE_OS::kill(getpid(), s);
+                        }
+                    }
+                    else
+                    {
+                        signal(s, SIG_DFL);
+                        ACE_OS::kill(getpid(), s);
+                    }
+                    break;
+                default:
+                    signal(s, SIG_DFL);
                     break;
             }
         }
@@ -90,7 +142,8 @@ public:
         w_lastchange = 0;
         while (!World::IsStopped())
         {
-            ACE_Based::Thread::Sleep(1000);
+            ACE_Based::Thread::Sleep(sWorld->getIntConfig(CONFIG_VMSS_FREEZECHECKPERIOD));
+            sMapMgr->GetMapUpdater()->FreezeDetect();
             uint32 curtime = getMSTime();
             // normal work
             if (w_loops != World::m_worldLoopCounter)
