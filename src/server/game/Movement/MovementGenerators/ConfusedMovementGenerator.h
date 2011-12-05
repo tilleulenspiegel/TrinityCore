@@ -37,7 +37,7 @@ class ConfusedMovementGenerator
         MovementGeneratorType GetMovementGeneratorType() { return CONFUSED_MOTION_TYPE; }
     private:
         TimeTracker i_nextMoveTime;
-        uint32 i_nextMove;
+        float i_x, i_y, i_z;
 };
 #endif
 

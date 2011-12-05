@@ -17,6 +17,19 @@
  */
 
 #include "MMapManager.h"
+#include "Log.h"
+#include "World.h"
+
+//  memory management
+inline void* dtCustomAlloc(int size, dtAllocHint /*hint*/)
+{
+    return (void*)new unsigned char[size];
+}
+
+inline void dtCustomFree(void* ptr)
+{
+    delete [] (unsigned char*)ptr;
+}
 
 namespace MMAP
 {
@@ -44,7 +57,7 @@ namespace MMAP
         FILE* file = fopen(fileName, "rb");
         if (!file)
         {
-            sLog->outDebug("MMAP:loadMapData: Error: Could not open mmap file '%s'", fileName);
+            sLog->outDebug(LOG_FILTER_MAPS, "MMAP:loadMapData: Error: Could not open mmap file '%s'", fileName);
             delete [] fileName;
             return false;
         }
@@ -106,7 +119,7 @@ namespace MMAP
         FILE *file = fopen(fileName, "rb");
         if (!file)
         {
-            sLog->outDebug("MMAP:loadMap: Could not open mmtile file '%s'", fileName);
+            sLog->outDebug(LOG_FILTER_MAPS, "MMAP:loadMap: Could not open mmtile file '%s'", fileName);
             delete [] fileName;
             return false;
         }
@@ -169,7 +182,7 @@ namespace MMAP
         if (loadedMMaps.find(mapId) == loadedMMaps.end())
         {
             // file may not exist, therefore not loaded
-            sLog->outDebug("MMAP:unloadMap: Asked to unload not loaded navmesh map. %03u%02i%02i.mmtile", mapId, x, y);
+            sLog->outDebug(LOG_FILTER_MAPS, "MMAP:unloadMap: Asked to unload not loaded navmesh map. %03u%02i%02i.mmtile", mapId, x, y);
             return false;
         }
 
@@ -180,7 +193,7 @@ namespace MMAP
         if (mmap->mmapLoadedTiles.find(packedGridPos) == mmap->mmapLoadedTiles.end())
         {
             // file may not exist, therefore not loaded
-            sLog->outDebug("MMAP:unloadMap: Asked to unload not loaded navmesh tile. %03u%02i%02i.mmtile", mapId, x, y);
+            sLog->outDebug(LOG_FILTER_MAPS, "MMAP:unloadMap: Asked to unload not loaded navmesh tile. %03u%02i%02i.mmtile", mapId, x, y);
             return false;
         }
 
@@ -211,7 +224,7 @@ namespace MMAP
         if (loadedMMaps.find(mapId) == loadedMMaps.end())
         {
             // file may not exist, therefore not loaded
-            sLog->outDebug("MMAP:unloadMap: Asked to unload not loaded navmesh map %03u", mapId);
+            sLog->outDebug(LOG_FILTER_MAPS, "MMAP:unloadMap: Asked to unload not loaded navmesh map %03u", mapId);
             return false;
         }
 
@@ -243,14 +256,14 @@ namespace MMAP
         if (loadedMMaps.find(mapId) == loadedMMaps.end())
         {
             // file may not exist, therefore not loaded
-            sLog->outDebug("MMAP:unloadMapInstance: Asked to unload not loaded navmesh map %03u", mapId);
+            sLog->outDebug(LOG_FILTER_MAPS, "MMAP:unloadMapInstance: Asked to unload not loaded navmesh map %03u", mapId);
             return false;
         }
 
         MMapData* mmap = loadedMMaps[mapId];
         if (mmap->navMeshQueries.find(instanceId) == mmap->navMeshQueries.end())
         {
-            sLog->outDebug("MMAP:unloadMapInstance: Asked to unload not loaded dtNavMeshQuery mapId %03u instanceId %u", mapId, instanceId);
+            sLog->outDebug(LOG_FILTER_MAPS, "MMAP:unloadMapInstance: Asked to unload not loaded dtNavMeshQuery mapId %03u instanceId %u", mapId, instanceId);
             return false;
         }
 
@@ -285,7 +298,7 @@ namespace MMAP
             if (DT_SUCCESS != query->init(mmap->navMesh, 1024))
             {
                 dtFreeNavMeshQuery(query);
-                sLog.outError("MMAP:GetNavMeshQuery: Failed to initialize dtNavMeshQuery for mapId %03u instanceId %u", mapId, instanceId);
+                sLog->outError("MMAP:GetNavMeshQuery: Failed to initialize dtNavMeshQuery for mapId %03u instanceId %u", mapId, instanceId);
                 return NULL;
             }
 

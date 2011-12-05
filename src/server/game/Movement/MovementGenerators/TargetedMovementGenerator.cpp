@@ -156,7 +156,7 @@ bool TargetedMovementGeneratorMedium<T,D>::Update(T &owner, const uint32 & time_
     {
         i_recheckDistance.Reset(100);
         //More distance let have better performance, less distance let have more sensitive reaction at target move.
-        float allowed_dist = owner.GetObjectBoundingRadius() + sWorld.getFloatConfig(CONFIG_RATE_TARGET_POS_RECALCULATION_RANGE);
+        float allowed_dist = owner.GetObjectBoundingRadius() + sWorld->getFloatConfig(CONFIG_RATE_TARGET_POS_RECALCULATION_RANGE);
         G3D::Vector3 dest = owner.movespline->FinalDestination();
 
         bool targetMoved = false;

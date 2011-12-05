@@ -20,6 +20,7 @@
 #include "GridStates.h"
 #include "ScriptMgr.h"
 #include "VMapFactory.h"
+#include "MMapFactory.h"
 #include "MapInstanced.h"
 #include "CellImpl.h"
 #include "GridNotifiers.h"

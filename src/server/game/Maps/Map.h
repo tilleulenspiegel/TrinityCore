@@ -687,14 +687,3 @@ inline void Map::VisitGrid(const float &x, const float &y, float radius, NOTIFIE
     cell.Visit(p, grid_object_notifier, *this, radius, x, y);
 }
 #endif
-
-//  memory management
-inline void* dtCustomAlloc(int size, dtAllocHint /*hint*/)
-{
-    return (void*)new unsigned char[size];
-}
-
-inline void dtCustomFree(void* ptr)
-{
-    delete [] (unsigned char*)ptr;
-}
