@@ -50,7 +50,12 @@ double rand_norm(void)
     return sfmtRand->Random();
 }
 
-double rand_chance (void)
+float rand_norm_f(void)
+{
+    return (float)mtRand->randExc();
+}
+
+double rand_chance(void)
 {
     return sfmtRand->Random() * 100.0;
 }
