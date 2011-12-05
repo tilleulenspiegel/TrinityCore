@@ -31,7 +31,7 @@
 
 using namespace Trinity;
 
-namespace MMAP
+namespace Pathfinding
 {
     enum Spot
     {

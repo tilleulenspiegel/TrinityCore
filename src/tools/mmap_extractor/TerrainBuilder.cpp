@@ -95,9 +95,9 @@ namespace Pathfinding
             return false;
         }
 
-        GridMapHeightHeader hheader;
+        map_heightHeader hheader;
         fseek(mapFile, fheader.heightMapOffset, SEEK_SET);
-        fread(&hheader, sizeof(GridMapHeightHeader), 1, mapFile);
+        fread(&hheader, sizeof(map_heightHeader), 1, mapFile);
 
         bool haveTerrain = !(hheader.flags & MAP_HEIGHT_NO_HEIGHT);
         bool haveLiquid = fheader.liquidMapOffset && !m_skipLiquid;
@@ -200,9 +200,9 @@ namespace Pathfinding
         // liquid data
         if (haveLiquid)
         {
-            GridMapLiquidHeader lheader;
+            map_liquidHeader lheader;
             fseek(mapFile, fheader.liquidMapOffset, SEEK_SET);
-            fread(&lheader, sizeof(GridMapLiquidHeader), 1, mapFile);
+            fread(&lheader, sizeof(map_liquidHeader), 1, mapFile);
 
             float* liquid_map = NULL;
 
@@ -552,7 +552,7 @@ namespace Pathfinding
     bool TerrainBuilder::loadVMap(uint32 mapID, uint32 tileX, uint32 tileY, MeshData &meshData)
     {
         IVMapManager* vmapManager = new VMapManager2();
-        VMAPLoadResult result = vmapManager->loadMap("vmaps", mapID, tileX, tileY);
+        int result = vmapManager->loadMap("vmaps", mapID, tileX, tileY);
         bool retval = false;
 
         do
