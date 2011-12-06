@@ -85,8 +85,8 @@ namespace Pathfinding
         if (!mapFile)
             return false;
 
-        map_fileheader fheader;
-        fread(&fheader, sizeof(map_fileheader), 1, mapFile);
+        Trinity::map_fileheader fheader;
+        fread(&fheader, sizeof(Trinity::map_fileheader), 1, mapFile);
 
         if (fheader.versionMagic != *((uint32 const*)(MAP_VERSION_MAGIC)))
         {
@@ -95,9 +95,9 @@ namespace Pathfinding
             return false;
         }
 
-        map_heightHeader hheader;
+        Trinity::map_heightHeader hheader;
         fseek(mapFile, fheader.heightMapOffset, SEEK_SET);
-        fread(&hheader, sizeof(map_heightHeader), 1, mapFile);
+        fread(&hheader, sizeof(Trinity::map_heightHeader), 1, mapFile);
 
         bool haveTerrain = !(hheader.flags & MAP_HEIGHT_NO_HEIGHT);
         bool haveLiquid = fheader.liquidMapOffset && !m_skipLiquid;
@@ -200,9 +200,9 @@ namespace Pathfinding
         // liquid data
         if (haveLiquid)
         {
-            map_liquidHeader lheader;
+            Trinity::map_liquidHeader lheader;
             fseek(mapFile, fheader.liquidMapOffset, SEEK_SET);
-            fread(&lheader, sizeof(map_liquidHeader), 1, mapFile);
+            fread(&lheader, sizeof(Trinity::map_liquidHeader), 1, mapFile);
 
             float* liquid_map = NULL;
 
