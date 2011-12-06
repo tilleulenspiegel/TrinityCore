@@ -21,6 +21,17 @@
 #include "DetourNavMesh.h"
 #include "DetourNavMeshQuery.h"
 
+//  memory management
+inline void* dtCustomAlloc(int size, dtAllocHint /*hint*/)
+{
+    return (void*)new unsigned char[size];
+}
+
+inline void dtCustomFree(void* ptr)
+{
+    delete [] (unsigned char*)ptr;
+}
+
 //  move map related classes
 namespace MMAP
 {
