@@ -393,6 +393,7 @@ void MotionMaster::MoveFall()
 
 void MotionMaster::MoveCharge(float x, float y, float z, float speed, uint32 id)
 {
+    bool generatePath = true;
     if (Impl[MOTION_SLOT_CONTROLLED] && Impl[MOTION_SLOT_CONTROLLED]->GetMovementGeneratorType() != DISTRACT_MOTION_TYPE)
         return;
 
@@ -401,13 +402,13 @@ void MotionMaster::MoveCharge(float x, float y, float z, float speed, uint32 id)
     if (i_owner->GetTypeId() == TYPEID_PLAYER)
     {
         sLog->outStaticDebug("Player (GUID: %u) charge point (X: %f Y: %f Z: %f)", i_owner->GetGUIDLow(), x, y, z);
-        Mutate(new PointMovementGenerator<Player>(id, x, y, z), MOTION_SLOT_CONTROLLED);
+        Mutate(new PointMovementGenerator<Player>(id, x, y, z, generatePath), MOTION_SLOT_CONTROLLED);
     }
     else
     {
         sLog->outStaticDebug("Creature (Entry: %u GUID: %u) charge point (X: %f Y: %f Z: %f)",
             i_owner->GetEntry(), i_owner->GetGUIDLow(), x, y, z);
-        Mutate(new PointMovementGenerator<Creature>(id, x, y, z), MOTION_SLOT_CONTROLLED);
+        Mutate(new PointMovementGenerator<Creature>(id, x, y, z, generatePath), MOTION_SLOT_CONTROLLED);
     }
 }
 

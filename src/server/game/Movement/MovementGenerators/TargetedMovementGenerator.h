@@ -40,7 +40,7 @@ class TargetedMovementGeneratorMedium
     protected:
         TargetedMovementGeneratorMedium(Unit &target, float offset, float angle) :
             TargetedMovementGeneratorBase(target), i_offset(offset), i_angle(angle),
-            i_recalculateTravel(false), i_targetReached(false), i_recheckDistance(0), i_path
+            i_recalculateTravel(false), i_targetReached(false), i_recheckDistance(0), i_path(NULL)
         {
         }
         ~TargetedMovementGeneratorMedium() { delete i_path; }
