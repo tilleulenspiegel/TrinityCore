@@ -16,6 +16,9 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+#ifndef _MMAP_FACTORY_H
+#define _MMAP_FACTORY_H
+
 #include "MMapManager.h"
 #include "UnorderedMap.h"
 #include "DetourAlloc.h"
@@ -36,3 +39,6 @@ namespace MMAP
             static bool IsPathfindingEnabled(uint32 mapId);
     };
 }
+
+#endif
+

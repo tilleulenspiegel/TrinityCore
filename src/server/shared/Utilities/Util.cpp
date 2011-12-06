@@ -40,6 +40,11 @@ uint32 urand (uint32 min, uint32 max)
     return sfmtRand->URandom(min, max);
 }
 
+float frand (float min, float max)
+{
+    return mtRand->randExc (max - min) + min;
+}
+
 int32 rand32 ()
 {
     return int32(sfmtRand->BRandom());

@@ -144,7 +144,7 @@ namespace Movement
         if (generatePath)
         {
             PathInfo path(&unit);
-            path.calculate(dest.x, dest.y, dest.z, false, forceDestination);
+            path.calculate(dest.x, dest.y, dest.z, forceDestination);
             MovebyPath(path.getPath());
         }
         else

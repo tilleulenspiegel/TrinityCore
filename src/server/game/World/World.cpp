@@ -55,7 +55,6 @@
 #include "WaypointMovementGenerator.h"
 #include "VMapFactory.h"
 #include "MMapFactory.h"
-#include "MMapManager.h"
 #include "GameEventMgr.h"
 #include "PoolMgr.h"
 #include "GridNotifiersImpl.h"
@@ -76,6 +75,7 @@
 #include "CreatureTextMgr.h"
 #include "SmartAI.h"
 #include "Channel.h"
+#include "Memory.h"
 
 volatile bool World::m_stopEvent = false;
 uint8 World::m_ExitCode = SHUTDOWN_EXIT_CODE;

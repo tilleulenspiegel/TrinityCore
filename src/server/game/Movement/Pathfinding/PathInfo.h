@@ -16,8 +16,8 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-#ifndef _PATH_FINDER_H
-#define _PATH_FINDER_H
+#ifndef _PATH_INFO_H
+#define _PATH_INFO_H
 
 #include "SharedDefines.h"
 #include "DetourNavMesh.h"
@@ -29,14 +29,14 @@ using Movement::PointsArray;
 
 class Unit;
 
-// 64*6.0f=384y  number_of_points*interval = max_path_len
+// 74*4.0f=296y  number_of_points*interval = max_path_len
 // this is way more than actual evade range
 // I think we can safely cut those down even more
-#define MAX_PATH_LENGTH         64
-#define MAX_POINT_PATH_LENGTH   64
+#define MAX_PATH_LENGTH         74
+#define MAX_POINT_PATH_LENGTH   74
 
-#define SMOOTH_PATH_STEP_SIZE   6.0f
-#define SMOOTH_PATH_SLOP        0.4f
+#define SMOOTH_PATH_STEP_SIZE   4.0f
+#define SMOOTH_PATH_SLOP        0.3f
 
 #define VERTEX_SIZE       3
 #define INVALID_POLYREF   0
@@ -57,11 +57,15 @@ class PathInfo
         PathInfo(Unit const* owner);
         ~PathInfo();
 
-        // return: true if new path was calculated
-        // false otherwise (no change needed)
-        bool calculate(float destX, float destY, float destZ,
-                       bool useStraightPath = false, bool forceDest = false);
+        // Calculate the path from owner to given destination
+        // return: true if new path was calculated, false otherwise (no change needed)
+        bool calculate(float destX, float destY, float destZ, bool forceDest = false);
 
+        // option setters - use optional
+        void setUseStrightPath(bool useStraightPath) { m_useStraightPath = useStraightPath; };
+        void setPathLengthLimit(float distance) { m_pointPathLimit = std::min<uint32>(uint32(distance/SMOOTH_PATH_STEP_SIZE), MAX_POINT_PATH_LENGTH); };
+
+        // result getters
         Vector3 getStartPosition()      const { return m_startPosition; }
         Vector3 getEndPosition()        const { return m_endPosition; }
         Vector3 getActualEndPosition()  const { return m_actualEndPosition; }
@@ -79,6 +83,7 @@ class PathInfo
 
         bool           m_useStraightPath;  // type of path will be generated
         bool           m_forceDestination; // when set, we will always arrive at given point
+        uint32         m_pointPathLimit;   // limit point path size; min(this, MAX_POINT_PATH_LENGTH)
 
         Vector3        m_startPosition;    // {x, y, z} of current location
         Vector3        m_endPosition;      // {x, y, z} of the destination
@@ -104,9 +109,9 @@ class PathInfo
         float dist3DSqr(const Vector3 &p1, const Vector3 &p2) const;
         bool inRangeYZX(const float* v1, const float* v2, float r, float h) const;
 
-        dtPolyRef getPathPolyByPosition(const dtPolyRef *polyPath, uint32 polyPathSize, const float* point, float *distance = NULL);
-        dtPolyRef getPolyByLocation(const float* point, float *distance);
-        bool HaveTiles(const Vector3 &p) const;
+        dtPolyRef getPathPolyByPosition(const dtPolyRef *polyPath, uint32 polyPathSize, const float* point, float *distance = NULL) const;
+        dtPolyRef getPolyByLocation(const float* point, float *distance) const;
+        bool HaveTile(const Vector3 &p) const;
 
         void BuildPolyPath(const Vector3 &startPos, const Vector3 &endPos);
         void BuildPointPath(const float *startPoint, const float *endPoint);
@@ -116,7 +121,7 @@ class PathInfo
         void createFilter();
         void updateFilter();
 
-        // smooth path functions
+        // smooth path aux functions
         uint32 fixupCorridor(dtPolyRef* path, uint32 npath, uint32 maxPath,
                              const dtPolyRef* visited, uint32 nvisited);
         bool getSteerTarget(const float* startPos, const float* endPos, float minTargetDist,
@@ -124,8 +129,7 @@ class PathInfo
                             unsigned char& steerPosFlag, dtPolyRef& steerPosRef);
         dtStatus findSmoothPath(const float* startPos, const float* endPos,
                               const dtPolyRef* polyPath, uint32 polyPathSize,
-                              float* smoothPath, int* smoothPathSize, bool &usedOffmesh,
-                              uint32 smoothPathMaxSize);
+                              float* smoothPath, int* smoothPathSize, uint32 smoothPathMaxSize);
 };
 
 #endif

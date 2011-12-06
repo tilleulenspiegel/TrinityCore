@@ -16,21 +16,13 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+#ifndef _MMAP_MANAGER_H
+#define _MMAP_MANAGER_H
+
 #include "UnorderedMap.h"
 #include "DetourAlloc.h"
 #include "DetourNavMesh.h"
 #include "DetourNavMeshQuery.h"
-
-//  memory management
-inline void* dtCustomAlloc(int size, dtAllocHint /*hint*/)
-{
-    return (void*)new unsigned char[size];
-}
-
-inline void dtCustomFree(void* ptr)
-{
-    delete [] (unsigned char*)ptr;
-}
 
 //  move map related classes
 namespace MMAP
@@ -88,3 +80,5 @@ namespace MMAP
             uint32 loadedTiles;
     };
 }
+
+#endif
