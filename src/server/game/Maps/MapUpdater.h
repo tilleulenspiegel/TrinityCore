@@ -26,16 +26,15 @@ struct MapBrokenData
     void IncreaseCount() { ++count; lastErrorTime = time(NULL);};
     uint32 count;
     time_t lastErrorTime;
-;
+};
 
 typedef std::map<ACE_thread_t const, MapID> ThreadMapMap;
 typedef std::map<ACE_thread_t const, uint32/*MSTime*/>  ThreadStartTimeMap;
-typedef std::map<MapID,MapBrokenData> MapBrokenDataMap;
+typedef std::map<MapID, MapBrokenData> MapBrokenDataMap;
 
 class MapUpdater
 {
     public:
-
         MapUpdater();
         virtual ~MapUpdater();
 

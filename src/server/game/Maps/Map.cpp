@@ -2652,14 +2652,34 @@ void Map::UpdateIteratorBack(Player* player)
 void Map::ForcedUnload()
 {
     sLog->outError("Map::ForcedUnload called for map %u instance %u. Map crushed. Cleaning up...", GetId(), GetInstanceId());
-    Map::PlayerList const& pList = GetPlayers();
+
+    // Immediately cleanup update sets/queues
+    i_objectsToClientUpdate.clear();
+    i_objectsToClientNotUpdate.clear();
+    while (!i_objectsToClientUpdateQueue.empty())
+        i_objectsToClientUpdateQueue.pop();
+
+    Map::PlayerList const pList = GetPlayers();
     for (PlayerList::const_iterator itr = pList.begin(); itr != pList.end(); ++itr)
     {
         Player* player = itr->getSource();
         if (!player || !player->GetSession())
             continue;
 
-        switch (sWorld->getIntConfig(CONFIG_UINT32_VMSS_MAPFREEMETHOD))
+        if (player->IsBeingTeleportedFar())
+        {
+            WorldLocation old_loc;
+            player->GetPosition(old_loc);
+            if (!player->TeleportTo(old_loc))
+            {
+                DETAIL_LOG("Map::ForcedUnload: %s is in teleport state, cannot be ported to his previous place, teleporting him to his homebind place...",
+                    player->GetGuidStr().c_str());
+                player->TeleportToHomebind();
+            }
+            player->SetSemaphoreTeleportFar(false);
+        }
+
+        switch (sWorld->getIntConfig(CONFIG_VMSS_MAPFREEMETHOD))
         {
             case 0:
             {
@@ -2684,10 +2704,10 @@ void Map::ForcedUnload()
         }
     }
 
-    switch (sWorld->getIntConfig(CONFIG_UINT32_VMSS_MAPFREEMETHOD))
+    switch (sWorld->getIntConfig(CONFIG_VMSS_MAPFREEMETHOD))
     {
         case 0:
-            if (InstanceData* iData = GetInstanceData())
+            if (InstanceScript* iData = GetInstanceScript())
                 iData->Save();
             break;
         default:

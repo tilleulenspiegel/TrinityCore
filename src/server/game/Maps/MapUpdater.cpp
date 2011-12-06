@@ -69,7 +69,8 @@ class MapUpdateRequest : public ACE_Method_Request
         }
 };
 
-MapUpdater::MapUpdater() : m_executor(), m_mutex(), m_condition(m_mutex), pending_requests(0), m_broken(false)
+MapUpdater::MapUpdater()
+    : m_executor(), m_mutex(), m_condition(m_mutex), pending_requests(0), m_broken(false)
 {
 }
 
@@ -149,7 +150,7 @@ void MapUpdater::register_thread(ACE_thread_t const threadId, uint32 mapId, uint
     TRINITY_GUARD(ACE_Thread_Mutex, m_mutex);
     MapID pair = MapID(mapId, instanceId);
     m_threads.insert(std::make_pair(threadId, pair));
-    m_starttime.insert(std::make_pair(threadId, WorldTimer::getMSTime()));
+    m_starttime.insert(std::make_pair(threadId, getMSTime()));
 }
 
 void MapUpdater::unregister_thread(ACE_thread_t const threadId)
@@ -166,22 +167,22 @@ MapID const* MapUpdater::GetMapPairByThreadId(ACE_thread_t const threadId)
         ThreadMapMap::const_iterator itr = m_threads.find(threadId);
         if (itr != m_threads.end())
             return &itr->second;
-   }
+    }
     return NULL;
 }
 
 void MapUpdater::FreezeDetect()
 {
-    ACE_GUARD(ACE_Thread_Mutex, guard, m_mutex);
+    TRINITY_GUARD(ACE_Thread_Mutex, m_mutex);
     if (!m_starttime.empty())
     {
         for (ThreadStartTimeMap::const_iterator itr = m_starttime.begin(); itr != m_starttime.end(); ++itr)
-        if (WorldTimer::getMSTime() - itr->second > sWorld.getConfig(CONFIG_UINT32_VMSS_FREEZEDETECTTIME))
+        if (getMSTime() - itr->second > sWorld->getIntConfig(CONFIG_VMSS_FREEZEDETECTTIME))
         {
             if (MapID const* mapPair = GetMapPairByThreadId(itr->first))
             {
-                DEBUG_LOG("MapUpdater::FreezeDetect thread "I64FMT" possible freezed (is update map %u instance %u). Killing.",itr->first,mapPair->nMapId, mapPair->nInstanceId);
-                ACE_OS::thr_kill(itr->first, SIGUSR1);
+                sLog->outStaticDebug("MapUpdater::FreezeDetect thread "I64FMT" possible freezed (is update map %u instance %u). Killing.",itr->first,mapPair->nMapId, mapPair->nInstanceId);
+                ACE_OS::thr_kill(itr->first, SIGABRT);
             }
         }
     }
@@ -194,7 +195,7 @@ void MapUpdater::MapBrokenEvent(MapID const* mapPair)
         MapBrokenDataMap::iterator itr =  m_brokendata.find(*mapPair);
         if (itr != m_brokendata.end())
         {
-            if ((time(NULL) - itr->second.lastErrorTime) > sWorld.getConfig(CONFIG_UINT32_VMSS_TBREMTIME))
+            if ((time(NULL) - itr->second.lastErrorTime) > sWorld->getIntConfig(CONFIG_VMSS_TBREMTIME))
                 itr->second.Reset();
             else
                 itr->second.IncreaseCount();
