@@ -285,8 +285,8 @@ void MapManager::Update(uint32 diff)
 
     if (m_updater.IsBroken())
     {
-        m_updater.ReActivate(sWorld->getIntConfig(CONFIG_UINT32_NUMTHREADS));
-        DEBUG_LOG("Map:Update map virtual server pool reactivated, thread num is %u", sWorld.getConfig(CONFIG_UINT32_NUMTHREADS));
+        m_updater.ReActivate(sWorld->getIntConfig(CONFIG_NUMTHREADS));
+        sLog->outStaticDebug("Map:Update map virtual server pool reactivated, thread num is %u", sWorld->getIntConfig(CONFIG_NUMTHREADS));
     }
 
     for (iter = i_maps.begin(); iter != i_maps.end(); ++iter)
