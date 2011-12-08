@@ -200,11 +200,9 @@ void Map::LoadMap(int gx, int gy, bool reload)
 void Map::LoadMapAndVMap(int gx, int gy)
 {
     LoadMap(gx, gy);
+    LoadMMap(gx, gy);
     if (i_InstanceId == 0)
-    {
         LoadVMap(gx, gy);                                   // Only load the data for the base map
-        LoadMMap(gx, gy);
-    }
 }
 
 void Map::InitStateMachine()
