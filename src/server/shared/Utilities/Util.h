@@ -62,7 +62,7 @@ inline uint32 secsToTimeBitFields(time_t secs)
  uint32 urand(uint32 min, uint32 max);
 
 /* Return a random number in the range min..max (inclusive). */
-float frand(float min, float max);
+ float frand(float min, float max);
 
 /* Return a random number in the range 0 .. RAND32_MAX. */
  int32 rand32();
