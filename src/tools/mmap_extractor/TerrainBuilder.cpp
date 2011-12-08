@@ -85,8 +85,8 @@ namespace MMAP
         if (!mapFile)
             return false;
 
-        Trinity::map_fileheader fheader;
-        fread(&fheader, sizeof(Trinity::map_fileheader), 1, mapFile);
+        map_fileheader fheader;
+        fread(&fheader, sizeof(map_fileheader), 1, mapFile);
 
         if (fheader.versionMagic != *((uint32 const*)(MAP_VERSION_MAGIC)))
         {
@@ -95,9 +95,9 @@ namespace MMAP
             return false;
         }
 
-        Trinity::map_heightHeader hheader;
+        map_heightHeader hheader;
         fseek(mapFile, fheader.heightMapOffset, SEEK_SET);
-        fread(&hheader, sizeof(Trinity::map_heightHeader), 1, mapFile);
+        fread(&hheader, sizeof(map_heightHeader), 1, mapFile);
 
         bool haveTerrain = !(hheader.flags & MAP_HEIGHT_NO_HEIGHT);
         bool haveLiquid = fheader.liquidMapOffset && !m_skipLiquid;
@@ -200,9 +200,9 @@ namespace MMAP
         // liquid data
         if (haveLiquid)
         {
-            Trinity::map_liquidHeader lheader;
+            map_liquidHeader lheader;
             fseek(mapFile, fheader.liquidMapOffset, SEEK_SET);
-            fread(&lheader, sizeof(Trinity::map_liquidHeader), 1, mapFile);
+            fread(&lheader, sizeof(map_liquidHeader), 1, mapFile);
 
             float* liquid_map = NULL;
 
@@ -319,25 +319,25 @@ namespace MMAP
                     liquidType = getLiquidType(i, liquid_type);
                     switch (liquidType)
                     {
-                    default:
-                        useLiquid = false;
-                        break;
-                    case MAP_LIQUID_TYPE_WATER:
-                    case MAP_LIQUID_TYPE_OCEAN:
-                        // merge different types of water
-                        liquidType = NAV_WATER;
-                        break;
-                    case MAP_LIQUID_TYPE_MAGMA:
-                        liquidType = NAV_MAGMA;
-                        break;
-                    case MAP_LIQUID_TYPE_SLIME:
-                        liquidType = NAV_SLIME;
-                        break;
-                    case MAP_LIQUID_TYPE_DARK_WATER:
-                        // players should not be here, so logically neither should creatures
-                        useTerrain = false;
-                        useLiquid = false;
-                        break;
+                        default:
+                            useLiquid = false;
+                            break;
+                        case MAP_LIQUID_TYPE_WATER:
+                        case MAP_LIQUID_TYPE_OCEAN:
+                            // merge different types of water
+                            liquidType = NAV_WATER;
+                            break;
+                        case MAP_LIQUID_TYPE_MAGMA:
+                            liquidType = NAV_MAGMA;
+                            break;
+                        case MAP_LIQUID_TYPE_SLIME:
+                            liquidType = NAV_SLIME;
+                            break;
+                        case MAP_LIQUID_TYPE_DARK_WATER:
+                            // players should not be here, so logically neither should creatures
+                            useTerrain = false;
+                            useLiquid = false;
+                            break;
                     }
                 }
 
