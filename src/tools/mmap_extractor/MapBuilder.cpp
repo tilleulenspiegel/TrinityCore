@@ -21,13 +21,18 @@
 
 #include "MapTree.h"
 #include "ModelInstance.h"
+#include "LoginDatabase.h"
+#include "DisableMgr.h"
 
 #include "DetourNavMeshBuilder.h"
 #include "DetourCommon.h"
 
+// These make the linker happy.
+LoginDatabaseWorkerPool LoginDatabase;
+
 using namespace VMAP;
 
-namespace Pathfinding
+namespace MMAP
 {
     MapBuilder::MapBuilder(float maxWalkableAngle, bool skipLiquid,
         bool skipContinents, bool skipJunkMaps, bool skipBattlegrounds,

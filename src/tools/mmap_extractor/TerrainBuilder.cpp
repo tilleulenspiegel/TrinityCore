@@ -25,7 +25,7 @@
 #include "MapTree.h"
 #include "ModelInstance.h"
 
-namespace Pathfinding
+namespace MMAP
 {
     TerrainBuilder::TerrainBuilder(bool skipLiquid) : m_skipLiquid (skipLiquid){ }
     TerrainBuilder::~TerrainBuilder() { }

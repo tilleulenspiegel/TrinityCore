@@ -24,7 +24,7 @@
 #include "Recast.h"
 #include "DetourNavMesh.h"
 
-namespace Pathfinding
+namespace MMAP
 {
     // this class gathers all debug info holding and output
     struct IntermediateValues

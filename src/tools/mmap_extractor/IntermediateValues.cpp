@@ -18,7 +18,7 @@
 
 #include "IntermediateValues.h"
 
-namespace Pathfinding
+namespace MMAP
 {
     IntermediateValues::~IntermediateValues()
     {

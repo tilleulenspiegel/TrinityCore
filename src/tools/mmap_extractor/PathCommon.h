@@ -35,7 +35,7 @@
 
 using namespace std;
 
-namespace Pathfinding
+namespace MMAP
 {
     inline bool matchWildcardFilter(const char* filter, const char* str)
     {

@@ -36,7 +36,7 @@ using namespace std;
 using namespace VMAP;
 // G3D namespace typedefs conflicts with ACE typedefs
 
-namespace Pathfinding
+namespace MMAP
 {
     typedef map<uint32,set<uint32>*> TileList;
     struct Tile

@@ -19,7 +19,7 @@
 #include "PathCommon.h"
 #include "MapBuilder.h"
 
-using namespace Pathfinding;
+using namespace MMAP;
 
 bool checkDirectories(bool debugOutput)
 {
