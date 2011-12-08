@@ -1,8 +1,8 @@
-commit 65eb83a8e3b0509f05286149185083a60aa93982
+commit ca8b1a45a3e10f222ef4285ce7122a2880e284dd
 Author: Venugh <Venugh@gmx.net>
-Date:   Thu Dec 8 13:28:04 2011 +0100
+Date:   Thu Dec 8 22:22:44 2011 +0100
 
-    MMaps Patch version 0.1v.
+    mmaps patch v.0.2.
 
 diff --git a/dep/CMakeLists.txt b/dep/CMakeLists.txt
 index f22286c..aff33f2 100644
@@ -14570,10 +14570,10 @@ index 0000000..5df73cf
 \ No newline at end of file
 diff --git a/src/server/collision/Management/MMapFactory.h b/src/server/collision/Management/MMapFactory.h
 new file mode 100644
-index 0000000..53d5cbc
+index 0000000..ab04733
 --- /dev/null
 +++ b/src/server/collision/Management/MMapFactory.h
-@@ -0,0 +1,44 @@
+@@ -0,0 +1,51 @@
 +/*
 + * Copyright (C) 2008-2011 TrinityCore <http://www.trinitycore.org/>
 + * Copyright (C) 2005-2010 MaNGOS <http://getmangos.com/>
@@ -14603,6 +14603,13 @@ index 0000000..53d5cbc
 +
 +namespace MMAP
 +{
++    enum MMAP_LOAD_RESULT
++    {
++        MMAP_LOAD_RESULT_ERROR,
++        MMAP_LOAD_RESULT_OK,
++        MMAP_LOAD_RESULT_IGNORED,
++    };
++
 +    // static class
 +    // holds all mmap global data
 +    // access point to MMapManager singleton
@@ -16720,7 +16727,7 @@ index be61a9b..3a22121 100755
          {
              sLog->outErrorDb("Table `gameobject` has gameobject (GUID: %u Entry: %u) with invalid rotation2 (%f) value, skip", guid, data.id, data.rotation2);
 diff --git a/src/server/game/Maps/Map.cpp b/src/server/game/Maps/Map.cpp
-index 13a4763..9b95aa5 100755
+index 13a4763..2fc64af 100755
 --- a/src/server/game/Maps/Map.cpp
 +++ b/src/server/game/Maps/Map.cpp
 @@ -20,6 +20,7 @@
@@ -16731,7 +16738,7 @@ index 13a4763..9b95aa5 100755
  #include "MapInstanced.h"
  #include "CellImpl.h"
  #include "GridNotifiers.h"
-@@ -114,9 +115,20 @@ bool Map::ExistVMap(uint32 mapid, int gx, int gy)
+@@ -114,9 +115,27 @@ bool Map::ExistVMap(uint32 mapid, int gx, int gy)
      return true;
  }
  
@@ -16740,8 +16747,15 @@ index 13a4763..9b95aa5 100755
 +    int mmapLoadResult = MMAP::MMapFactory::createOrGetMMapManager()->loadMap(GetId(), gy, gx);
 +    switch (mmapLoadResult)
 +    {
-+    case 1: // Need to declared an enum.
-+    	break;
++        case MMAP::MMAP_LOAD_RESULT_OK:
++            sLog->outDetail("MMAP loaded name:%s, id:%d, x:%d, y:%d (vmap rep.: x:%d, y:%d)", GetMapName(), GetId(), gx, gy, gx, gy);
++    	    break;
++        case MMAP::MMAP_LOAD_RESULT_ERROR:
++            sLog->outDetail("Could not load MMAP name:%s, id:%d, x:%d, y:%d (vmap rep.: x:%d, y:%d)", GetMapName(), GetId(), gx, gy, gx, gy);
++            break;
++        case MMAP::MMAP_LOAD_RESULT_IGNORED:
++            sLog->outStaticDebug("Ignored MMAP name:%s, id:%d, x:%d, y:%d (vmap rep.: x:%d, y:%d)", GetMapName(), GetId(), gx, gy, gx, gy);
++            break;
 +    }
 +
 +}
@@ -16753,7 +16767,15 @@ index 13a4763..9b95aa5 100755
      int vmapLoadResult = VMAP::VMapFactory::createOrGetVMapManager()->loadMap((sWorld->GetDataPath()+ "vmaps").c_str(),  GetId(), gx, gy);
      switch (vmapLoadResult)
      {
-@@ -964,6 +976,7 @@ bool Map::UnloadGrid(NGridType& ngrid, bool unloadAll)
+@@ -181,6 +200,7 @@ void Map::LoadMap(int gx, int gy, bool reload)
+ void Map::LoadMapAndVMap(int gx, int gy)
+ {
+     LoadMap(gx, gy);
++    LoadMMap(gx, gy);
+     if (i_InstanceId == 0)
+         LoadVMap(gx, gy);                                   // Only load the data for the base map
+ }
+@@ -964,6 +984,7 @@ bool Map::UnloadGrid(NGridType& ngrid, bool unloadAll)
              }
              // x and y are swapped
              VMAP::VMapFactory::createOrGetVMapManager()->unloadMap(GetId(), gx, gy);
@@ -16761,7 +16783,7 @@ index 13a4763..9b95aa5 100755
          }
          else
              ((MapInstanced*)m_parentMap)->RemoveGridMapReference(GridCoord(gx, gy));
-@@ -1530,6 +1543,24 @@ inline GridMap* Map::GetGrid(float x, float y)
+@@ -1530,6 +1551,24 @@ inline GridMap* Map::GetGrid(float x, float y)
      return GridMaps[gx][gy];
  }
  
@@ -16787,7 +16809,7 @@ index 13a4763..9b95aa5 100755
  {
      // find raw .map surface under Z coordinates
 diff --git a/src/server/game/Maps/Map.h b/src/server/game/Maps/Map.h
-index 5b652a2..e12201f 100755
+index 5b652a2..ff1603f 100755
 --- a/src/server/game/Maps/Map.h
 +++ b/src/server/game/Maps/Map.h
 @@ -19,6 +19,11 @@
@@ -16802,7 +16824,16 @@ index 5b652a2..e12201f 100755
  #include "Define.h"
  #include <ace/RW_Thread_Mutex.h>
  #include <ace/Thread_Mutex.h>
-@@ -424,12 +429,16 @@ class Map : public GridRefManager<NGridType>
+@@ -74,6 +79,8 @@ struct map_fileheader
+     uint32 heightMapSize;
+     uint32 liquidMapOffset;
+     uint32 liquidMapSize;
++    uint32 holesOffset;
++    uint32 holesSize;
+ };
+ 
+ #define MAP_AREA_NO_AREA      0x0001
+@@ -424,12 +431,16 @@ class Map : public GridRefManager<NGridType>
  
          InstanceMap* ToInstanceMap(){ if (IsDungeon())  return reinterpret_cast<InstanceMap*>(this); else return NULL;  }
          const InstanceMap* ToInstanceMap() const { if (IsDungeon())  return (const InstanceMap*)((InstanceMap*)this); else return NULL;  }
@@ -16819,7 +16850,7 @@ index 5b652a2..e12201f 100755
          void SetTimer(uint32 t) { i_gridExpiry = t < MIN_GRID_DELAY ? MIN_GRID_DELAY : t; }
  
          void SendInitSelf(Player* player);
-@@ -677,4 +686,4 @@ inline void Map::VisitGrid(const float &x, const float &y, float radius, NOTIFIE
+@@ -677,4 +688,4 @@ inline void Map::VisitGrid(const float &x, const float &y, float radius, NOTIFIE
      TypeContainerVisitor<NOTIFIER, GridTypeMapContainer >  grid_object_notifier(notifier);
      cell.Visit(p, grid_object_notifier, *this, radius, x, y);
  }
@@ -16914,324 +16945,6 @@ index a99d0f3..b03d305 100755
 +};
 +
  #endif
-diff --git a/src/server/game/Movement/DestinationHolder.cpp b/src/server/game/Movement/DestinationHolder.cpp
-deleted file mode 100755
-index 6247111..0000000
---- a/src/server/game/Movement/DestinationHolder.cpp
-+++ /dev/null
-@@ -1,20 +0,0 @@
--/*
-- * Copyright (C) 2008-2011 TrinityCore <http://www.trinitycore.org/>
-- * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
-- *
-- * This program is free software; you can redistribute it and/or modify it
-- * under the terms of the GNU General Public License as published by the
-- * Free Software Foundation; either version 2 of the License, or (at your
-- * option) any later version.
-- *
-- * This program is distributed in the hope that it will be useful, but WITHOUT
-- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-- * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
-- * more details.
-- *
-- * You should have received a copy of the GNU General Public License along
-- * with this program. If not, see <http://www.gnu.org/licenses/>.
-- */
--
--#include "DestinationHolder.h"
--
-diff --git a/src/server/game/Movement/DestinationHolder.h b/src/server/game/Movement/DestinationHolder.h
-deleted file mode 100755
-index 2b36fe4..0000000
---- a/src/server/game/Movement/DestinationHolder.h
-+++ /dev/null
-@@ -1,65 +0,0 @@
--/*
-- * Copyright (C) 2008-2011 TrinityCore <http://www.trinitycore.org/>
-- * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
-- *
-- * This program is free software; you can redistribute it and/or modify it
-- * under the terms of the GNU General Public License as published by the
-- * Free Software Foundation; either version 2 of the License, or (at your
-- * option) any later version.
-- *
-- * This program is distributed in the hope that it will be useful, but WITHOUT
-- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-- * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
-- * more details.
-- *
-- * You should have received a copy of the GNU General Public License along
-- * with this program. If not, see <http://www.gnu.org/licenses/>.
-- */
--
--#ifndef TRINITY_DESTINATION_HOLDER_H
--#define TRINITY_DESTINATION_HOLDER_H
--
--#include "Define.h"
--#include "Timer.h"
--
--class WorldObject;
--class Map;
--
--#define TRAVELLER_UPDATE_INTERVAL  300
--
--template<typename TRAVELLER>
--class DestinationHolder
--{
--    TimeTrackerSmall i_tracker;
--    uint32 i_totalTravelTime;
--    uint32 i_timeElapsed;
--    bool i_destSet;
--    float i_fromX, i_fromY, i_fromZ;
--    float i_destX, i_destY, i_destZ;
--
--    public:
--        DestinationHolder() : i_tracker(TRAVELLER_UPDATE_INTERVAL), i_totalTravelTime(0), i_timeElapsed(0),
--            i_destSet(false), i_fromX(0), i_fromY(0), i_fromZ(0), i_destX(0), i_destY(0), i_destZ(0) {}
--
--        uint32 SetDestination(TRAVELLER &traveller, float dest_x, float dest_y, float dest_z, bool sendMove = true);
--        void GetDestination(float &x, float &y, float &z) const { x = i_destX; y = i_destY; z = i_destZ; }
--        bool UpdateExpired(void) const { return i_tracker.Passed(); }
--        void ResetUpdate(uint32 t = TRAVELLER_UPDATE_INTERVAL) { i_tracker.Reset(t); }
--        uint32 GetTotalTravelTime(void) const { return i_totalTravelTime; }
--        void IncreaseTravelTime(uint32 increment) { i_totalTravelTime += increment; }
--        void ResetTravelTime() { i_totalTravelTime = 0; }
--        bool HasDestination(void) const { return i_destSet; }
--        float GetDestinationDiff(float x, float y, float z) const;
--        bool HasArrived(void) const { return (i_totalTravelTime == 0 || i_timeElapsed >= i_totalTravelTime); }
--        bool UpdateTraveller(TRAVELLER &traveller, uint32 diff, bool micro_movement=false);
--        uint32 StartTravel(TRAVELLER &traveller, bool sendMove = true);
--        void GetLocationNow(const Map* map, float &x, float &y, float &z, bool is3D = false) const;
--        void GetLocationNowNoMicroMovement(float &x, float &y, float &z) const; // For use without micro movement
--        float GetDistance3dFromDestSq(const WorldObject &obj) const;
--
--    private:
--        void _findOffSetPoint(float x1, float y1, float x2, float y2, float offset, float &x, float &y);
--
--};
--#endif
--
-diff --git a/src/server/game/Movement/DestinationHolderImp.h b/src/server/game/Movement/DestinationHolderImp.h
-deleted file mode 100755
-index 84e7fbf..0000000
---- a/src/server/game/Movement/DestinationHolderImp.h
-+++ /dev/null
-@@ -1,215 +0,0 @@
--/*
-- * Copyright (C) 2008-2011 TrinityCore <http://www.trinitycore.org/>
-- * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
-- *
-- * This program is free software; you can redistribute it and/or modify it
-- * under the terms of the GNU General Public License as published by the
-- * Free Software Foundation; either version 2 of the License, or (at your
-- * option) any later version.
-- *
-- * This program is distributed in the hope that it will be useful, but WITHOUT
-- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-- * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
-- * more details.
-- *
-- * You should have received a copy of the GNU General Public License along
-- * with this program. If not, see <http://www.gnu.org/licenses/>.
-- */
--
--#ifndef TRINITY_DESTINATIONHOLDERIMP_H
--#define TRINITY_DESTINATIONHOLDERIMP_H
--
--#include "MapManager.h"
--#include "DestinationHolder.h"
--
--#include <cmath>
--
--template<typename TRAVELLER>
--void
--DestinationHolder<TRAVELLER>::_findOffSetPoint(float x1, float y1, float x2, float y2, float offset, float &x, float &y)
--{
--    /* given the point (x1, y1) and (x2, y2).. need to find the point (x, y) on the same line
--     * such that the distance from (x, y) to (x2, y2) is offset.
--     * Let the distance of p1 to p2 = d.. then the ratio of offset/d = (x2-x)/(x2-x1)
--     * hence x = x2 - (offset/d)*(x2-x1)
--     * like wise offset/d = (y2-y)/(y2-y1);
--     */
--    if (offset == 0)
--    {
--        x = x2;
--        y = y2;
--    }
--    else
--    {
--        double x_diff = double(x2 - x1);
--        double y_diff = double(y2 - y1);
--        double distance_d = (double)((x_diff*x_diff) + (y_diff * y_diff));
--        if (distance_d == 0)
--        {
--            x = x2;
--            y = y2;
--        }
--        else
--        {
--            distance_d = ::sqrt(distance_d);                // starting distance
--            double distance_ratio = (double)(distance_d - offset)/(double)distance_d;
--            // line above has revised formula which is more correct, I think
--            x = (float)(x1 + (distance_ratio*x_diff));
--            y = (float)(y1 + (distance_ratio*y_diff));
--        }
--    }
--}
--
--template<typename TRAVELLER>
--uint32
--DestinationHolder<TRAVELLER>::SetDestination(TRAVELLER &traveller, float dest_x, float dest_y, float dest_z, bool sendMove)
--{
--    i_destSet = true;
--    i_destX = dest_x;
--    i_destY = dest_y;
--    i_destZ = dest_z;
--
--    return StartTravel(traveller, sendMove);
--}
--
--template<typename TRAVELLER>
--uint32
--DestinationHolder<TRAVELLER>::StartTravel(TRAVELLER &traveller, bool sendMove)
--{
--    if (!i_destSet) return 0;
--
--    i_fromX = traveller.GetPositionX();
--    i_fromY = traveller.GetPositionY();
--    i_fromZ = traveller.GetPositionZ();
--
--    i_totalTravelTime = traveller.GetTotalTrevelTimeTo(i_destX, i_destY, i_destZ);
--    i_timeElapsed = 0;
--    if (sendMove)
--        traveller.MoveTo(i_destX, i_destY, i_destZ, i_totalTravelTime);
--    return i_totalTravelTime;
--}
--
--template<typename TRAVELLER>
--bool
--DestinationHolder<TRAVELLER>::UpdateTraveller(TRAVELLER &traveller, uint32 diff, bool micro_movement)
--{
--    i_timeElapsed += diff;
--
--    // Update every TRAVELLER_UPDATE_INTERVAL
--    i_tracker.Update(diff);
--    if (!i_tracker.Passed())
--        return false;
--    else
--        ResetUpdate();
--
--    if (!i_destSet) return true;
--
--    float x, y, z;
--    if (!micro_movement)
--        GetLocationNowNoMicroMovement(x, y, z);
--    else
--    {
--        if (!traveller.GetTraveller().HasUnitState(UNIT_STAT_MOVING | UNIT_STAT_IN_FLIGHT))
--            return true;
--
--        if (traveller.GetTraveller().HasUnitState(UNIT_STAT_IN_FLIGHT))
--            GetLocationNow(traveller.GetTraveller().GetBaseMap(), x, y, z, true);                  // Should reposition Object with right Coord, so I can bypass some Grid Relocation
--        else
--            GetLocationNow(traveller.GetTraveller().GetBaseMap(), x, y, z, false);
--
--        // Change movement computation to micro movement based on last tick coords, this makes system work
--        // even on multiple floors zones without hugh vmaps usage ;)
--
--        // Take care of underrun of uint32
--        if (i_totalTravelTime >= i_timeElapsed)
--            i_totalTravelTime -= i_timeElapsed;     // Consider only the remaining part
--        else
--            i_totalTravelTime = 0;
--
--        i_timeElapsed = 0;
--        i_fromX = x;                            // and change origine
--        i_fromY = y;                            // then I take into account only micro movement
--        i_fromZ = z;
--    }
--
--    if (traveller.GetTraveller().GetPositionX() != x || traveller.GetTraveller().GetPositionY() != y || traveller.GetTraveller().GetPositionZ() != z)
--    {
--        float ori = traveller.GetTraveller().GetAngle(x, y);
--        traveller.Relocation(x, y, z, ori);
--    }
--
--    return true;
--}
--
--template<typename TRAVELLER>
--void
--DestinationHolder<TRAVELLER>::GetLocationNow(const Map* map, float &x, float &y, float &z, bool is3D) const
--{
--    if (HasArrived())
--    {
--        x = i_destX;
--        y = i_destY;
--        z = i_destZ;
--    }
--    else if (HasDestination())
--    {
--        double percent_passed = (double)i_timeElapsed / (double)i_totalTravelTime;
--        const float distanceX = (float)((i_destX - i_fromX) * percent_passed);
--        const float distanceY = (float)((i_destY - i_fromY) * percent_passed);
--        const float distanceZ = (float)((i_destZ - i_fromZ) * percent_passed);
--        x = i_fromX + distanceX;
--        y = i_fromY + distanceY;
--        float z2 = i_fromZ + distanceZ;
--        // All that is not finished but previous code neither... Traveller need be able to swim.
--        if (is3D)
--            z = z2;
--        else
--        {
--            //That part is good for mob Walking on the floor. But the floor is not always what we thought.
--            z = map->GetHeight(x, y, i_fromZ, false); // Disable cave check
--            const float groundDist = sqrt(distanceX*distanceX + distanceY*distanceY);
--            const float zDist = fabs(i_fromZ - z) + 0.000001f;
--            const float slope = groundDist / zDist;
--            if (slope < 1.0f)  // This prevents the ground returned by GetHeight to be used when in cave
--                z = z2; // a climb or jump of more than 45 is denied
--        }
--    }
--}
--
--template<typename TRAVELLER>
--float
--DestinationHolder<TRAVELLER>::GetDistance3dFromDestSq(const WorldObject &obj) const
--{
--    float x, y, z;
--    obj.GetPosition(x, y, z);
--    return (i_destX-x)*(i_destX-x)+(i_destY-y)*(i_destY-y)+(i_destZ-z)*(i_destZ-z);
--}
--
--template<typename TRAVELLER>
--float
--DestinationHolder<TRAVELLER>::GetDestinationDiff(float x, float y, float z) const
--{
--    return sqrt(((x-i_destX)*(x-i_destX)) + ((y-i_destY)*(y-i_destY)) + ((z-i_destZ)*(z-i_destZ)));
--}
--
--template<typename TRAVELLER>
--void
--DestinationHolder<TRAVELLER>::GetLocationNowNoMicroMovement(float &x, float &y, float &z) const
--{
--    if (HasArrived())
--    {
--        x = i_destX;
--        y = i_destY;
--        z = i_destZ;
--    }
--    else
--    {
--        double percent_passed = (double)i_timeElapsed / (double)i_totalTravelTime;
--        x = (float)(i_fromX + ((i_destX - i_fromX) * percent_passed));
--        y = (float)(i_fromY + ((i_destY - i_fromY) * percent_passed));
--        z = (float)(i_fromZ + ((i_destZ - i_fromZ) * percent_passed));
--    }
--}
--
--#endif
--
 diff --git a/src/server/game/Movement/MotionMaster.cpp b/src/server/game/Movement/MotionMaster.cpp
 index ec928e7..147ac6b 100755
 --- a/src/server/game/Movement/MotionMaster.cpp
@@ -18784,7 +18497,7 @@ index 3d936de..af41533 100755
  #endif
  
 diff --git a/src/server/game/Movement/MovementGenerators/RandomMovementGenerator.cpp b/src/server/game/Movement/MovementGenerators/RandomMovementGenerator.cpp
-index 5bd0a23..f334af4 100755
+index 5bd0a23..43cee71 100755
 --- a/src/server/game/Movement/MovementGenerators/RandomMovementGenerator.cpp
 +++ b/src/server/game/Movement/MovementGenerators/RandomMovementGenerator.cpp
 @@ -19,124 +19,52 @@
@@ -18824,7 +18537,7 @@ index 5bd0a23..f334af4 100755
  {
 -    float X, Y, Z, z, nx, ny, nz, ori, dist;
 +    float respX, respY, respZ, respO, wander_distance;
-+    creature.GetHomePosition(respX, respY, respZ, respO);
++    creature.GetRespawnPosition(respX, respY, respZ, &respO, &wander_distance);
  
 -    creature.GetHomePosition(X, Y, Z, ori);
 +    const float angle = float(rand_norm()) * static_cast<float>(M_PI*2.0f);
@@ -23683,164 +23396,6 @@ index 0000000..f0ed01c
 +        return str;
 +    }
 +}
-diff --git a/src/server/game/Movement/Traveller.h b/src/server/game/Movement/Traveller.h
-deleted file mode 100755
-index 9cd6a6c..0000000
---- a/src/server/game/Movement/Traveller.h
-+++ /dev/null
-@@ -1,152 +0,0 @@
--/*
-- * Copyright (C) 2008-2011 TrinityCore <http://www.trinitycore.org/>
-- * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
-- *
-- * This program is free software; you can redistribute it and/or modify it
-- * under the terms of the GNU General Public License as published by the
-- * Free Software Foundation; either version 2 of the License, or (at your
-- * option) any later version.
-- *
-- * This program is distributed in the hope that it will be useful, but WITHOUT
-- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-- * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
-- * more details.
-- *
-- * You should have received a copy of the GNU General Public License along
-- * with this program. If not, see <http://www.gnu.org/licenses/>.
-- */
--
--#ifndef TRINITY_TRAVELLER_H
--#define TRINITY_TRAVELLER_H
--
--#include "Creature.h"
--#include "Player.h"
--#include <cassert>
--
--/** Traveller is a wrapper for units (creatures or players) that
-- * travel from point A to point B using the destination holder.
-- */
--#define PLAYER_FLIGHT_SPEED        32.0f
--
--template<class T>
--struct Traveller
--{
--    T &i_traveller;
--    Traveller(T &t) : i_traveller(t) {}
--    Traveller(const Traveller &obj) : i_traveller(obj) {}
--    Traveller& operator=(const Traveller &obj)
--    {
--        this.i_traveller = obj.i_traveller;
--        return *this;
--    }
--
--    operator T&(void) { return i_traveller; }
--    operator const T&(void) { return i_traveller; }
--    float GetPositionX() const { return i_traveller.GetPositionX(); }
--    float GetPositionY() const { return i_traveller.GetPositionY(); }
--    float GetPositionZ() const { return i_traveller.GetPositionZ(); }
--    T& GetTraveller(void) { return i_traveller; }
--
--    float Speed(void) { ASSERT(false); return 0.0f; }
--    float GetMoveDestinationTo(float x, float y, float z);
--    uint32 GetTotalTrevelTimeTo(float x, float y, float z);
--
--    void Relocation(float x, float y, float z, float orientation) {}
--    void Relocation(float x, float y, float z) { Relocation(x, y, z, i_traveller.GetOrientation()); }
--    void MoveTo(float x, float y, float z, uint32 t) {}
--};
--
--template<class T>
--inline uint32 Traveller<T>::GetTotalTrevelTimeTo(float x, float y, float z)
--{
--    float dist = GetMoveDestinationTo(x, y, z);
--    float speed = Speed();
--    if (speed < 0.0f)
--        return 0xfffffffe;  // almost infinity-unit should stop
--    else
--        speed *= 0.001f;   // speed is in seconds so convert from second to millisecond
--    return static_cast<uint32>(dist/speed);
--}
--
--// specialization for creatures
--template<>
--inline float Traveller<Creature>::Speed()
--{
--    if (i_traveller.HasUnitState(UNIT_STAT_CHARGING))
--        return i_traveller.m_TempSpeed;
--    else if (i_traveller.HasUnitMovementFlag(MOVEMENTFLAG_WALKING))
--        return i_traveller.GetSpeed(MOVE_WALK);
--    else if (i_traveller.HasUnitMovementFlag(MOVEMENTFLAG_FLYING))
--        return i_traveller.GetSpeed(MOVE_FLIGHT);
--    else
--        return i_traveller.GetSpeed(MOVE_RUN);
--}
--
--template<>
--inline void Traveller<Creature>::Relocation(float x, float y, float z, float orientation)
--{
--    i_traveller.UpdatePosition(x, y, z, orientation);
--}
--
--template<>
--inline float Traveller<Creature>::GetMoveDestinationTo(float x, float y, float z)
--{
--    float dx = x - GetPositionX();
--    float dy = y - GetPositionY();
--    float dz = z - GetPositionZ();
--
--    //if (i_traveller.HasUnitMovementFlag(MOVEMENTFLAG_FLYING))
--        return sqrt((dx*dx) + (dy*dy) + (dz*dz));
--    //else                                                    //Walking on the ground
--    //    return sqrt((dx*dx) + (dy*dy));
--}
--
--template<>
--inline void Traveller<Creature>::MoveTo(float x, float y, float z, uint32 t)
--{
--    //i_traveller.AI_SendMoveToPacket(x, y, z, t, i_traveller.GetUnitMovementFlags(), 0);
--    i_traveller.SendMonsterMove(x, y, z, t);
--}
--
--// specialization for players
--template<>
--inline float Traveller<Player>::Speed()
--{
--    if (i_traveller.HasUnitState(UNIT_STAT_CHARGING))
--        return i_traveller.m_TempSpeed;
--    else if (i_traveller.isInFlight())
--        return PLAYER_FLIGHT_SPEED;
--    else
--        return i_traveller.GetSpeed(i_traveller.m_movementInfo.HasMovementFlag(MOVEMENTFLAG_WALKING) ? MOVE_WALK : MOVE_RUN);
--}
--
--template<>
--inline float Traveller<Player>::GetMoveDestinationTo(float x, float y, float z)
--{
--    float dx = x - GetPositionX();
--    float dy = y - GetPositionY();
--    float dz = z - GetPositionZ();
--
--    //if (i_traveller.isInFlight())
--        return sqrt((dx*dx) + (dy*dy) + (dz*dz));
--    //else                                                    //Walking on the ground
--    //    return sqrt((dx*dx) + (dy*dy));
--}
--
--template<>
--inline void Traveller<Player>::Relocation(float x, float y, float z, float orientation)
--{
--    i_traveller.UpdatePosition(x, y, z, orientation);
--}
--
--template<>
--inline void Traveller<Player>::MoveTo(float x, float y, float z, uint32 t)
--{
--    //Only send MOVEMENTFLAG_WALKING, client has strange issues with other move flags
--    i_traveller.SendMonsterMove(x, y, z, t);
--}
--
--typedef Traveller<Creature> CreatureTraveller;
--typedef Traveller<Player> PlayerTraveller;
--#endif
--
 diff --git a/src/server/game/Movement/Waypoints/Path.h b/src/server/game/Movement/Waypoints/Path.h
 index f9a5551..f6949d4 100755
 --- a/src/server/game/Movement/Waypoints/Path.h
@@ -24680,6 +24235,78 @@ index 64a7dcb..6355a53 100644
  add_subdirectory(vmap3_assembler)
  add_subdirectory(vmap3_extractor)
 +add_subdirectory(mmap_extractor)
+diff --git a/src/tools/map_extractor/System.cpp b/src/tools/map_extractor/System.cpp
+index 335fd92..eddef3e 100644
+--- a/src/tools/map_extractor/System.cpp
++++ b/src/tools/map_extractor/System.cpp
+@@ -60,6 +60,7 @@ enum Extract
+ // Select data for extract
+ int   CONF_extract = EXTRACT_MAP | EXTRACT_DBC;
+ // This option allow limit minimum height to some value (Allow save some memory)
++// see contrib/mmap/src/Tilebuilder.h, INVALID_MAP_LIQ_HEIGHT
+ bool  CONF_allow_height_limit = true;
+ float CONF_use_minHeight = -500.0f;
+ 
+@@ -292,6 +293,8 @@ struct map_fileheader
+     uint32 heightMapSize;
+     uint32 liquidMapOffset;
+     uint32 liquidMapSize;
++    uint32 holesOffset;
++    uint32 holesSize;
+ };
+ 
+ #define MAP_AREA_NO_AREA      0x0001
+@@ -795,8 +798,8 @@ bool ConvertADT(char *filename, char *filename2, int cell_y, int cell_x, uint32
+         liquidHeader.liquidType = 0;
+         liquidHeader.offsetX = minX;
+         liquidHeader.offsetY = minY;
+-        liquidHeader.width   = maxX - minX + 1;
+-        liquidHeader.height  = maxY - minY + 1;
++        liquidHeader.width   = maxX - minX + 1 + 1;
++        liquidHeader.height  = maxY - minY + 1 + 1;
+         liquidHeader.liquidLevel = minHeight;
+ 
+         if (maxHeight == minHeight)
+@@ -818,6 +821,28 @@ bool ConvertADT(char *filename, char *filename2, int cell_y, int cell_x, uint32
+             map.liquidMapSize += sizeof(float)*liquidHeader.width*liquidHeader.height;
+     }
+ 
++    // map hole info
++    uint16 holes[ADT_CELLS_PER_GRID][ADT_CELLS_PER_GRID];
++
++    if (map.liquidMapOffset)
++        map.holesOffset = map.liquidMapOffset + map.liquidMapSize;
++    else
++        map.holesOffset = map.heightMapOffset + map.heightMapSize;
++
++    map.holesSize = sizeof(holes);
++    memset(holes, 0, map.holesSize);
++
++    for (int i = 0; i < ADT_CELLS_PER_GRID; ++i)
++    {
++        for (int j = 0; j < ADT_CELLS_PER_GRID; ++j)
++        {
++            adt_MCNK * cell = cells->getMCNK(i,j);
++            if (!cell)
++                continue;
++            holes[i][j] = cell->holes;
++        }
++    }
++
+     // Ok all data prepared - store it
+     FILE *output=fopen(filename2, "wb");
+     if(!output)
+@@ -864,6 +889,10 @@ bool ConvertADT(char *filename, char *filename2, int cell_y, int cell_x, uint32
+                 fwrite(&liquid_height[y+liquidHeader.offsetY][liquidHeader.offsetX], sizeof(float), liquidHeader.width, output);
+         }
+     }
++
++    // store hole data
++    fwrite(holes, map.holesSize, 1, output);
++
+     fclose(output);
+ 
+     return true;
 diff --git a/src/tools/mmap_extractor/CMakeLists.txt b/src/tools/mmap_extractor/CMakeLists.txt
 new file mode 100644
 index 0000000..0dd90de
@@ -24768,7 +24395,7 @@ index 0000000..0dd90de
 +endif()
 diff --git a/src/tools/mmap_extractor/IntermediateValues.cpp b/src/tools/mmap_extractor/IntermediateValues.cpp
 new file mode 100644
-index 0000000..afd66d1
+index 0000000..9eefb1e
 --- /dev/null
 +++ b/src/tools/mmap_extractor/IntermediateValues.cpp
 @@ -0,0 +1,277 @@
@@ -24825,19 +24452,19 @@ index 0000000..afd66d1
 +        } \
 +            else \
 +            debugWrite(file, data); \
-+            if(file) fclose(file); \
++            if (file) fclose(file); \
 +            printf("%sWriting debug output...                       \r", tileString); \
 +    } while (false)
 +
-+        if(heightfield)
++        if (heightfield)
 +            DEBUG_WRITE("hf", heightfield);
-+        if(compactHeightfield)
++        if (compactHeightfield)
 +            DEBUG_WRITE("chf", compactHeightfield);
-+        if(contours)
++        if (contours)
 +            DEBUG_WRITE("cs", contours);
-+        if(polyMesh)
++        if (polyMesh)
 +            DEBUG_WRITE("pmesh", polyMesh);
-+        if(polyMeshDetail)
++        if (polyMeshDetail)
 +            DEBUG_WRITE("dmesh", polyMeshDetail);
 +
 +#undef DEBUG_WRITE
@@ -25110,7 +24737,7 @@ index 0000000..a267a0f
 +#endif
 diff --git a/src/tools/mmap_extractor/MapBuilder.cpp b/src/tools/mmap_extractor/MapBuilder.cpp
 new file mode 100644
-index 0000000..447da63
+index 0000000..0f35502
 --- /dev/null
 +++ b/src/tools/mmap_extractor/MapBuilder.cpp
 @@ -0,0 +1,887 @@
@@ -25284,7 +24911,7 @@ index 0000000..447da63
 +
 +        // make sure we process maps which don't have tiles
 +        // initialize the static tree, which loads WDT models
-+        if(!m_terrainBuilder->loadVMap(mapID, 64, 64, meshData))
++        if (!m_terrainBuilder->loadVMap(mapID, 64, 64, meshData))
 +            return;
 +
 +        // get the coord bounds of the model data
@@ -26137,10 +25764,10 @@ index 0000000..c4f1b6a
 +#endif
 diff --git a/src/tools/mmap_extractor/PathCommon.h b/src/tools/mmap_extractor/PathCommon.h
 new file mode 100644
-index 0000000..7bc3a73
+index 0000000..fd02ec0
 --- /dev/null
 +++ b/src/tools/mmap_extractor/PathCommon.h
-@@ -0,0 +1,209 @@
+@@ -0,0 +1,128 @@
 +/*
 + * Copyright (C) 2008-2011 TrinityCore <http://www.trinitycore.org/>
 + * Copyright (C) 2005-2011 MaNGOS <http://getmangos.com/>
@@ -26266,87 +25893,6 @@ index 0000000..7bc3a73
 +
 +        return LISTFILE_OK;
 +    }
-+}
-+
-+namespace Trinity
-+{
-+    struct map_fileheader
-+    {
-+        uint32 mapMagic;
-+        uint32 versionMagic;
-+        uint32 buildMagic;
-+        uint32 areaMapOffset;
-+        uint32 areaMapSize;
-+        uint32 heightMapOffset;
-+        uint32 heightMapSize;
-+        uint32 liquidMapOffset;
-+        uint32 liquidMapSize;
-+        uint32 holesOffset;
-+        uint32 holesSize;
-+    };
-+
-+    #define MAP_AREA_NO_AREA      0x0001
-+
-+    struct map_areaHeader
-+    {
-+        uint32 fourcc;
-+        uint16 flags;
-+        uint16 gridArea;
-+    };
-+
-+    #define MAP_HEIGHT_NO_HEIGHT  0x0001
-+    #define MAP_HEIGHT_AS_INT16   0x0002
-+    #define MAP_HEIGHT_AS_INT8    0x0004
-+
-+    struct map_heightHeader
-+    {
-+        uint32 fourcc;
-+        uint32 flags;
-+        float  gridHeight;
-+        float  gridMaxHeight;
-+    };
-+
-+    #define MAP_LIQUID_NO_TYPE    0x0001
-+    #define MAP_LIQUID_NO_HEIGHT  0x0002
-+
-+    struct map_liquidHeader
-+    {
-+        uint32 fourcc;
-+        uint16 flags;
-+        uint16 liquidType;
-+        uint8  offsetX;
-+        uint8  offsetY;
-+        uint8  width;
-+        uint8  height;
-+        float  liquidLevel;
-+    };
-+
-+    enum ZLiquidStatus
-+    {
-+        LIQUID_MAP_NO_WATER     = 0x00000000,
-+        LIQUID_MAP_ABOVE_WATER  = 0x00000001,
-+        LIQUID_MAP_WATER_WALK   = 0x00000002,
-+        LIQUID_MAP_IN_WATER     = 0x00000004,
-+        LIQUID_MAP_UNDER_WATER  = 0x00000008
-+    };
-+
-+    #define MAP_LIQUID_TYPE_NO_WATER    0x00
-+    #define MAP_LIQUID_TYPE_WATER       0x01
-+    #define MAP_LIQUID_TYPE_OCEAN       0x02
-+    #define MAP_LIQUID_TYPE_MAGMA       0x04
-+    #define MAP_LIQUID_TYPE_SLIME       0x08
-+
-+    #define MAP_ALL_LIQUIDS   (MAP_LIQUID_TYPE_WATER | MAP_LIQUID_TYPE_OCEAN | MAP_LIQUID_TYPE_MAGMA | MAP_LIQUID_TYPE_SLIME)
-+
-+    #define MAP_LIQUID_TYPE_DARK_WATER  0x10
-+    #define MAP_LIQUID_TYPE_WMO_WATER   0x20
-+
-+    struct LiquidData
-+    {
-+        uint32 type;
-+        float  level;
-+        float  depth_level;
-+    };
 +}
 +
 +#endif
@@ -26631,7 +26177,7 @@ index 0000000..2eb2c65
 +}
 diff --git a/src/tools/mmap_extractor/TerrainBuilder.cpp b/src/tools/mmap_extractor/TerrainBuilder.cpp
 new file mode 100644
-index 0000000..65f3785
+index 0000000..c696f60
 --- /dev/null
 +++ b/src/tools/mmap_extractor/TerrainBuilder.cpp
 @@ -0,0 +1,854 @@
@@ -26722,8 +26268,8 @@ index 0000000..65f3785
 +        if (!mapFile)
 +            return false;
 +
-+        Trinity::map_fileheader fheader;
-+        fread(&fheader, sizeof(Trinity::map_fileheader), 1, mapFile);
++        map_fileheader fheader;
++        fread(&fheader, sizeof(map_fileheader), 1, mapFile);
 +
 +        if (fheader.versionMagic != *((uint32 const*)(MAP_VERSION_MAGIC)))
 +        {
@@ -26732,9 +26278,9 @@ index 0000000..65f3785
 +            return false;
 +        }
 +
-+        Trinity::map_heightHeader hheader;
++        map_heightHeader hheader;
 +        fseek(mapFile, fheader.heightMapOffset, SEEK_SET);
-+        fread(&hheader, sizeof(Trinity::map_heightHeader), 1, mapFile);
++        fread(&hheader, sizeof(map_heightHeader), 1, mapFile);
 +
 +        bool haveTerrain = !(hheader.flags & MAP_HEIGHT_NO_HEIGHT);
 +        bool haveLiquid = fheader.liquidMapOffset && !m_skipLiquid;
@@ -26837,9 +26383,9 @@ index 0000000..65f3785
 +        // liquid data
 +        if (haveLiquid)
 +        {
-+            Trinity::map_liquidHeader lheader;
++            map_liquidHeader lheader;
 +            fseek(mapFile, fheader.liquidMapOffset, SEEK_SET);
-+            fread(&lheader, sizeof(Trinity::map_liquidHeader), 1, mapFile);
++            fread(&lheader, sizeof(map_liquidHeader), 1, mapFile);
 +
 +            float* liquid_map = NULL;
 +
@@ -26932,7 +26478,7 @@ index 0000000..65f3785
 +        // make a copy of liquid vertices
 +        // used to pad right-bottom frame due to lost vertex data at extraction
 +        float* lverts_copy = NULL;
-+        if(meshData.liquidVerts.size())
++        if (meshData.liquidVerts.size())
 +        {
 +            lverts_copy = new float[meshData.liquidVerts.size()];
 +            memcpy(lverts_copy, lverts, sizeof(float)*meshData.liquidVerts.size());
@@ -26956,25 +26502,25 @@ index 0000000..65f3785
 +                    liquidType = getLiquidType(i, liquid_type);
 +                    switch (liquidType)
 +                    {
-+                    default:
-+                        useLiquid = false;
-+                        break;
-+                    case MAP_LIQUID_TYPE_WATER:
-+                    case MAP_LIQUID_TYPE_OCEAN:
-+                        // merge different types of water
-+                        liquidType = NAV_WATER;
-+                        break;
-+                    case MAP_LIQUID_TYPE_MAGMA:
-+                        liquidType = NAV_MAGMA;
-+                        break;
-+                    case MAP_LIQUID_TYPE_SLIME:
-+                        liquidType = NAV_SLIME;
-+                        break;
-+                    case MAP_LIQUID_TYPE_DARK_WATER:
-+                        // players should not be here, so logically neither should creatures
-+                        useTerrain = false;
-+                        useLiquid = false;
-+                        break;
++                        default:
++                            useLiquid = false;
++                            break;
++                        case MAP_LIQUID_TYPE_WATER:
++                        case MAP_LIQUID_TYPE_OCEAN:
++                            // merge different types of water
++                            liquidType = NAV_WATER;
++                            break;
++                        case MAP_LIQUID_TYPE_MAGMA:
++                            liquidType = NAV_MAGMA;
++                            break;
++                        case MAP_LIQUID_TYPE_SLIME:
++                            liquidType = NAV_SLIME;
++                            break;
++                        case MAP_LIQUID_TYPE_DARK_WATER:
++                            // players should not be here, so logically neither should creatures
++                            useTerrain = false;
++                            useLiquid = false;
++                            break;
 +                    }
 +                }
 +
@@ -26991,7 +26537,7 @@ index 0000000..65f3785
 +                    for(uint32 idx = 0; idx < 3; idx++)
 +                    {
 +                        float h = lverts_copy[ltris[idx]*3 + 1];
-+                        if(h != INVALID_MAP_LIQ_HEIGHT && h < INVALID_MAP_LIQ_HEIGHT_MAX)
++                        if (h != INVALID_MAP_LIQ_HEIGHT && h < INVALID_MAP_LIQ_HEIGHT_MAX)
 +                        {
 +                            quadHeight += h;
 +                            validCount++;
@@ -26999,19 +26545,19 @@ index 0000000..65f3785
 +                    }
 +
 +                    // update vertex height data
-+                    if(validCount > 0 && validCount < 3)
++                    if (validCount > 0 && validCount < 3)
 +                    {
 +                        quadHeight /= validCount;
 +                        for(uint32 idx = 0; idx < 3; idx++)
 +                        {
 +                            float h = lverts[ltris[idx]*3 + 1];
-+                            if(h == INVALID_MAP_LIQ_HEIGHT || h > INVALID_MAP_LIQ_HEIGHT_MAX)
++                            if (h == INVALID_MAP_LIQ_HEIGHT || h > INVALID_MAP_LIQ_HEIGHT_MAX)
 +                                lverts[ltris[idx]*3 + 1] = quadHeight;
 +                        }
 +                    }
 +
 +                    // no valid vertexes - don't use this poly at all
-+                    if(validCount == 0)
++                    if (validCount == 0)
 +                        useLiquid = false;
 +                }
 +
@@ -27027,10 +26573,10 @@ index 0000000..65f3785
 +                    for(uint32 x = 0; x < 3; x++)
 +                    {
 +                        float h = lverts[ltris[x]*3 + 1];
-+                        if(minLLevel > h)
++                        if (minLLevel > h)
 +                            minLLevel = h;
 +
-+                        if(maxLLevel < h)
++                        if (maxLLevel < h)
 +                            maxLLevel = h;
 +                    }
 +
@@ -27039,19 +26585,19 @@ index 0000000..65f3785
 +                    for(uint32 x = 0; x < 6; x++)
 +                    {
 +                        float h = tverts[ttris[x]*3 + 1];
-+                        if(maxTLevel < h)
++                        if (maxTLevel < h)
 +                            maxTLevel = h;
 +
-+                        if(minTLevel > h)
++                        if (minTLevel > h)
 +                            minTLevel = h;
 +                    }
 +
 +                    // terrain under the liquid?
-+                    if(minLLevel > maxTLevel)
++                    if (minLLevel > maxTLevel)
 +                        useTerrain = false;
 +
 +                    //liquid under the terrain?
-+                    if(minTLevel > maxLLevel)
++                    if (minTLevel > maxLLevel)
 +                        useLiquid = false;
 +                }
 +
@@ -27073,7 +26619,7 @@ index 0000000..65f3785
 +            }
 +        }
 +
-+        if(lverts_copy)
++        if (lverts_copy)
 +            delete [] lverts_copy;
 +
 +        return meshData.solidTris.size() || meshData.liquidTris.size();
@@ -27444,7 +26990,7 @@ index 0000000..65f3785
 +    void TerrainBuilder::loadOffMeshConnections(uint32 mapID, uint32 tileX, uint32 tileY, MeshData &meshData, const char* offMeshFilePath)
 +    {
 +        // no meshfile input given?
-+        if(offMeshFilePath == NULL)
++        if (offMeshFilePath == NULL)
 +            return;
 +
 +        FILE* fp = fopen(offMeshFilePath, "rb");
@@ -27462,11 +27008,11 @@ index 0000000..65f3785
 +            float p0[3], p1[3];
 +            int mid, tx, ty;
 +            float size;
-+            if(10 != sscanf(buf, "%d %d,%d (%f %f %f) (%f %f %f) %f", &mid, &tx, &ty,
++            if (10 != sscanf(buf, "%d %d,%d (%f %f %f) (%f %f %f) %f", &mid, &tx, &ty,
 +                &p0[0], &p0[1], &p0[2], &p1[0], &p1[1], &p1[2], &size))
 +                continue;
 +
-+            if(mapID == mid, tileX == tx, tileY == ty)
++            if (mapID == mid, tileX == tx, tileY == ty)
 +            {
 +                meshData.offMeshConnections.append(p0[1]);
 +                meshData.offMeshConnections.append(p0[2]);
@@ -27491,7 +27037,7 @@ index 0000000..65f3785
 +}
 diff --git a/src/tools/mmap_extractor/TerrainBuilder.h b/src/tools/mmap_extractor/TerrainBuilder.h
 new file mode 100644
-index 0000000..05e6b3a
+index 0000000..1bc0d26
 --- /dev/null
 +++ b/src/tools/mmap_extractor/TerrainBuilder.h
 @@ -0,0 +1,138 @@
@@ -27558,8 +27104,8 @@ index 0000000..05e6b3a
 +
 +    // see following files:
 +    // contrib/extractor/system.cpp
-+    // src/game/GridMap.cpp
-+    static char const* MAP_VERSION_MAGIC = "v1.2";
++    // src/game/Map.cpp
++    static char const* MAP_VERSION_MAGIC = "v1.1";
 +
 +    struct MeshData
 +    {
