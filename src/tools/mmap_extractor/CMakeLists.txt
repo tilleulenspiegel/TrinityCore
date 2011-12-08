@@ -29,6 +29,7 @@ include_directories(
   ${MYSQL_INCLUDE_DIR}
   ${CMAKE_SOURCE_DIR}/dep/libmpq
   ${CMAKE_SOURCE_DIR}/dep/zlib
+  ${CMAKE_SOURCE_DIR}/dep/bzip2
   ${CMAKE_SOURCE_DIR}/dep/acelite
   ${CMAKE_SOURCE_DIR}/dep/mysqllite/include/internal
   ${CMAKE_SOURCE_DIR}/dep/mysqllite/

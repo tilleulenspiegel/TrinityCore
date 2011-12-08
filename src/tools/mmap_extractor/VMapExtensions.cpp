@@ -47,7 +47,7 @@ namespace VMAP
     {
         groupModels = this->groupModels;
     }
-    
+
     // declared in src/shared/vmap/WorldModel.h
     void GroupModel::getMeshData(vector<Vector3> &vertices, vector<MeshTriangle> &triangles, WmoLiquid* &liquid)
     {
