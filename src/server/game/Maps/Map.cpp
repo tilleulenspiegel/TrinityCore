@@ -120,8 +120,15 @@ void Map::LoadMMap(int gx, int gy)
     int mmapLoadResult = MMAP::MMapFactory::createOrGetMMapManager()->loadMap(GetId(), gy, gx);
     switch (mmapLoadResult)
     {
-    case 1: // Need to declared an enum.
-    	break;
+        case MMAP::MMAP_LOAD_RESULT_OK:
+            sLog->outDetail("MMAP loaded name:%s, id:%d, x:%d, y:%d (vmap rep.: x:%d, y:%d)", GetMapName(), GetId(), gx, gy, gx, gy);
+    	    break;
+        case MMAP::MMAP_LOAD_RESULT_ERROR:
+            sLog->outDetail("Could not load MMAP name:%s, id:%d, x:%d, y:%d (vmap rep.: x:%d, y:%d)", GetMapName(), GetId(), gx, gy, gx, gy);
+            break;
+        case MMAP::MMAP_LOAD_RESULT_IGNORED:
+            sLog->outStaticDebug("Ignored MMAP name:%s, id:%d, x:%d, y:%d (vmap rep.: x:%d, y:%d)", GetMapName(), GetId(), gx, gy, gx, gy);
+            break;
     }
 
 }
@@ -194,7 +201,10 @@ void Map::LoadMapAndVMap(int gx, int gy)
 {
     LoadMap(gx, gy);
     if (i_InstanceId == 0)
+    {
         LoadVMap(gx, gy);                                   // Only load the data for the base map
+        LoadMMap(gx, gy);
+    }
 }
 
 void Map::InitStateMachine()
