@@ -168,7 +168,7 @@ namespace MMAP
 
         // make sure we process maps which don't have tiles
         // initialize the static tree, which loads WDT models
-        if(!m_terrainBuilder->loadVMap(mapID, 64, 64, meshData))
+        if (!m_terrainBuilder->loadVMap(mapID, 64, 64, meshData))
             return;
 
         // get the coord bounds of the model data

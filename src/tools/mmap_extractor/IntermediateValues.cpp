@@ -51,19 +51,19 @@ namespace MMAP
         } \
             else \
             debugWrite(file, data); \
-            if(file) fclose(file); \
+            if (file) fclose(file); \
             printf("%sWriting debug output...                       \r", tileString); \
     } while (false)
 
-        if(heightfield)
+        if (heightfield)
             DEBUG_WRITE("hf", heightfield);
-        if(compactHeightfield)
+        if (compactHeightfield)
             DEBUG_WRITE("chf", compactHeightfield);
-        if(contours)
+        if (contours)
             DEBUG_WRITE("cs", contours);
-        if(polyMesh)
+        if (polyMesh)
             DEBUG_WRITE("pmesh", polyMesh);
-        if(polyMeshDetail)
+        if (polyMeshDetail)
             DEBUG_WRITE("dmesh", polyMeshDetail);
 
 #undef DEBUG_WRITE
