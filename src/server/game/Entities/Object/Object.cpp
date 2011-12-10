@@ -430,7 +430,7 @@ void Object::_BuildMovementUpdate(ByteBuffer * data, uint16 flags) const
     // 0x200
     if (flags & UPDATEFLAG_ROTATION)
     {
-        *data << int64(((GameObject*)this)->GetRotation());
+        *data << uint64(((GameObject*)this)->GetRotation());
     }
 }
 

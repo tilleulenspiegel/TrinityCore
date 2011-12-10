@@ -1832,18 +1832,6 @@ void ObjectMgr::LoadGameobjects()
         int16 gameEvent     = fields[16].GetInt16();
         uint32 PoolId        = fields[17].GetUInt32();
 
-        if (data.rotation0 < -1.0f || data.rotation0 > 1.0f)
-        {
-            sLog->outErrorDb("Table `gameobject` have gameobject (GUID: %u Entry: %u) with invalid rotation0 (%f) value, skip", guid, data.id, data.rotation0);
-            continue;
-        }
-
-        if (data.rotation1 < -1.0f || data.rotation1 > 1.0f)
-        {
-            sLog->outErrorDb("Table `gameobject` have gameobject (GUID: %u Entry: %u) with invalid rotation1 (%f) value, skip", guid, data.id, data.rotation1);
-            continue;
-        }
-
         if (data.rotation2 < -1.0f || data.rotation2 > 1.0f)
         {
             sLog->outErrorDb("Table `gameobject` has gameobject (GUID: %u Entry: %u) with invalid rotation2 (%f) value, skip", guid, data.id, data.rotation2);
@@ -3695,7 +3683,7 @@ void ObjectMgr::LoadQuests()
     QueryResult result = WorldDatabase.Query("SELECT "
         //0     1      2        3        4           5       6            7             8              9               10             11                 12
         "Id, Method, Level, MinLevel, MaxLevel, ZoneOrSort, Type, SuggestedPlayers, LimitTime, RequiredClasses, RequiredRaces, RequiredSkillId, RequiredSkillPoints, "
-        //         13                 14                    15                   16                      17                  18                         19                  20                  
+        //         13                 14                    15                   16                      17                  18                         19                  20
         "RequiredFactionId1, RequiredFactionId2, RequiredFactionValue1, RequiredFactionValue2, RequiredMinRepFaction, RequiredMaxRepFaction, RequiredMinRepValue, RequiredMaxRepValue, "
         //     21         22             23                24             25              26                    27                28            29              30              31
         "PrevQuestId, NextQuestId, ExclusiveGroup, NextQuestIdChain, RewardXPId, RewardOrRequiredMoney, RewardMoneyMaxLevel, RewardSpell, RewardSpellCast, RewardHonor, RewardHonorMultiplier, "
