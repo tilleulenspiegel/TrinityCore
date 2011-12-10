@@ -1,8 +1,8 @@
-commit 94eedef65fab3954be58080980b60ff793fad331
+commit c739ec74316f9f351071ac5b3b49d41127fda6b3
 Author: Venugh <Venugh@gmx.net>
-Date:   Sat Dec 10 14:10:38 2011 +0100
+Date:   Sat Dec 10 14:18:48 2011 +0100
 
-    mmaps patch v: 0.3.
+    mmaps patch v: 0.3.a
 
 diff --git a/dep/CMakeLists.txt b/dep/CMakeLists.txt
 index f22286c..aff33f2 100644
@@ -15209,21 +15209,8 @@ index 1e0b212..53747d0 100644
              me->GetMotionMaster()->MoveTargetedHome();
      }
  
-diff --git a/src/server/game/AI/SmartScripts/SmartAI.cpp b/src/server/game/AI/SmartScripts/SmartAI.cpp
-index fde660e..afa7e9c 100644
---- a/src/server/game/AI/SmartScripts/SmartAI.cpp
-+++ b/src/server/game/AI/SmartScripts/SmartAI.cpp
-@@ -707,7 +707,7 @@ void SmartAI::SetRun(bool run)
-         me->RemoveUnitMovementFlag(MOVEMENTFLAG_WALKING);
-     else
-         me->AddUnitMovementFlag(MOVEMENTFLAG_WALKING);
--
-+    me->SendMovementFlagUpdate();
-     mRun = run;
- }
- 
 diff --git a/src/server/game/AI/SmartScripts/SmartScript.cpp b/src/server/game/AI/SmartScripts/SmartScript.cpp
-index 9755055..79448c9 100644
+index 9755055..43b0420 100644
 --- a/src/server/game/AI/SmartScripts/SmartScript.cpp
 +++ b/src/server/game/AI/SmartScripts/SmartScript.cpp
 @@ -1290,11 +1290,11 @@ void SmartScript::ProcessAction(SmartScriptHolder& e, Unit* unit, uint32 var0, u
@@ -15241,33 +15228,6 @@ index 9755055..79448c9 100644
  
              delete targets;
              break;
-@@ -1493,7 +1493,7 @@ void SmartScript::ProcessAction(SmartScriptHolder& e, Unit* unit, uint32 var0, u
-                     else if (GameObject* goTarget = (*itr)->ToGameObject())
-                     {
-                         if (IsSmartGO(goTarget))
--                            CAST_AI(SmartGameObjectAI, goTarget->AI())->SetScript9(e, e.action.timedActionList.id, GetLastInvoker());
-+                            CAST_AI(SmartGameObjectAI, target->AI())->SetScript9(e, e.action.timedActionList.id, GetLastInvoker());
-                     }
-                 }
- 
-@@ -1610,7 +1610,7 @@ void SmartScript::ProcessAction(SmartScriptHolder& e, Unit* unit, uint32 var0, u
-                     else if (GameObject* goTarget = (*itr)->ToGameObject())
-                     {
-                         if (IsSmartGO(goTarget))
--                            CAST_AI(SmartGameObjectAI, goTarget->AI())->SetScript9(e, id, GetLastInvoker());
-+                            CAST_AI(SmartGameObjectAI, target->AI())->SetScript9(e, id, GetLastInvoker());
-                     }
-                 }
- 
-@@ -1640,7 +1640,7 @@ void SmartScript::ProcessAction(SmartScriptHolder& e, Unit* unit, uint32 var0, u
-                     else if (GameObject* goTarget = (*itr)->ToGameObject())
-                     {
-                         if (IsSmartGO(goTarget))
--                            CAST_AI(SmartGameObjectAI, goTarget->AI())->SetScript9(e, id, GetLastInvoker());
-+                            CAST_AI(SmartGameObjectAI, target->AI())->SetScript9(e, id, GetLastInvoker());
-                     }
-                 }
- 
 diff --git a/src/server/game/CMakeLists.txt b/src/server/game/CMakeLists.txt
 index 65ba160..c2a8e7c 100644
 --- a/src/server/game/CMakeLists.txt
@@ -15589,7 +15549,7 @@ index 6ae9fa9..f04c61f 100755
          bool LoadFromDB(uint32 guid, Map* map) { return LoadCreatureFromDB(guid, map, false); }
          bool LoadCreatureFromDB(uint32 guid, Map* map, bool addToMap = true);
 diff --git a/src/server/game/Entities/Object/Object.cpp b/src/server/game/Entities/Object/Object.cpp
-index d4723cb..a84134e 100755
+index d4723cb..82058c8 100755
 --- a/src/server/game/Entities/Object/Object.cpp
 +++ b/src/server/game/Entities/Object/Object.cpp
 @@ -45,6 +45,7 @@
@@ -15759,28 +15719,7 @@ index d4723cb..a84134e 100755
  bool Position::IsPositionValid() const
  {
      return Trinity::IsValidMapCoord(m_positionX, m_positionY, m_positionZ, m_orientation);
-@@ -1642,7 +1649,7 @@ bool WorldObject::canSeeOrDetect(WorldObject const* obj, bool ignoreStealth, boo
-     bool corpseVisibility = false;
-     if (distanceCheck)
-     {
--        if (Player const* thisPlayer = ToPlayer())
-+        if (const Player* thisPlayer = ToPlayer())
-         {
-             if (thisPlayer->isDead() && thisPlayer->GetHealth() > 0 && // Cheap way to check for ghost state
-                 !(obj->m_serverSideVisibility.GetValue(SERVERSIDE_VISIBILITY_GHOST) & m_serverSideVisibility.GetValue(SERVERSIDE_VISIBILITY_GHOST) & GHOST_VISIBILITY_GHOST))
-@@ -1675,9 +1682,9 @@ bool WorldObject::canSeeOrDetect(WorldObject const* obj, bool ignoreStealth, boo
-     if (!corpseVisibility && !(obj->m_serverSideVisibility.GetValue(SERVERSIDE_VISIBILITY_GHOST) & m_serverSideVisibilityDetect.GetValue(SERVERSIDE_VISIBILITY_GHOST)))
-     {
-         // Alive players can see dead players in some cases, but other objects can't do that
--        if (Player const* thisPlayer = ToPlayer())
-+        if (const Player* thisPlayer = ToPlayer())
-         {
--            if (Player const* objPlayer = obj->ToPlayer())
-+            if (const Player* objPlayer = obj->ToPlayer())
-             {
-                 if (thisPlayer->GetTeam() != objPlayer->GetTeam() || !thisPlayer->IsGroupVisibleFor(objPlayer))
-                     return false;
-@@ -2015,9 +2022,11 @@ void Unit::BuildHeartBeatMsg(WorldPacket* data) const
+@@ -2015,7 +2022,8 @@ void Unit::BuildHeartBeatMsg(WorldPacket* data) const
  
  void WorldObject::SendMessageToSet(WorldPacket* data, bool self)
  {
@@ -15789,11 +15728,8 @@ index d4723cb..a84134e 100755
 +        SendMessageToSetInRange(data, GetVisibilityRange(), self);
  }
  
-+
  void WorldObject::SendMessageToSetInRange(WorldPacket* data, float dist, bool /*self*/)
- {
-     Trinity::MessageDistDeliverer notifier(this, data, dist);
-@@ -2502,7 +2511,7 @@ void WorldObject::GetNearPoint2D(float &x, float &y, float distance2d, float abs
+@@ -2502,7 +2510,7 @@ void WorldObject::GetNearPoint2D(float &x, float &y, float distance2d, float abs
  void WorldObject::GetNearPoint(WorldObject const* /*searcher*/, float &x, float &y, float &z, float searcher_size, float distance2d, float absAngle) const
  {
      GetNearPoint2D(x, y, distance2d+searcher_size, absAngle);
@@ -15802,7 +15738,7 @@ index d4723cb..a84134e 100755
      UpdateGroundPositionZ(x, y, z);
  
      /*
-@@ -2518,8 +2527,10 @@ void WorldObject::GetNearPoint(WorldObject const* /*searcher*/, float &x, float
+@@ -2518,8 +2526,10 @@ void WorldObject::GetNearPoint(WorldObject const* /*searcher*/, float &x, float
      float first_y = y;
      bool first_los_conflict = false;                        // first point LOS problems
  
@@ -15814,7 +15750,7 @@ index d4723cb..a84134e 100755
  
      // adding used positions around object
      {
-@@ -2543,7 +2554,7 @@ void WorldObject::GetNearPoint(WorldObject const* /*searcher*/, float &x, float
+@@ -2543,7 +2553,7 @@ void WorldObject::GetNearPoint(WorldObject const* /*searcher*/, float &x, float
      {
          UpdateGroundPositionZ(x, y, z);                       // update to LOS height if available
  
@@ -15823,7 +15759,7 @@ index d4723cb..a84134e 100755
              return;
  
          first_los_conflict = true;                          // first point have LOS problems
-@@ -2558,7 +2569,7 @@ void WorldObject::GetNearPoint(WorldObject const* /*searcher*/, float &x, float
+@@ -2558,7 +2568,7 @@ void WorldObject::GetNearPoint(WorldObject const* /*searcher*/, float &x, float
          z = GetPositionZ();
          UpdateGroundPositionZ(x, y, z);                       // update to LOS height if available
  
@@ -15832,7 +15768,7 @@ index d4723cb..a84134e 100755
              return;
      }
  
-@@ -2572,7 +2583,7 @@ void WorldObject::GetNearPoint(WorldObject const* /*searcher*/, float &x, float
+@@ -2572,7 +2582,7 @@ void WorldObject::GetNearPoint(WorldObject const* /*searcher*/, float &x, float
          z = GetPositionZ();
          UpdateGroundPositionZ(x, y, z);                       // update to LOS height if available
  
@@ -15942,7 +15878,7 @@ index 651b99e..802a398 100755
          uint32 GetResurrectionSpellId();
          void ResurrectPlayer(float restore_percent, bool applySickness = false);
 diff --git a/src/server/game/Entities/Unit/Unit.cpp b/src/server/game/Entities/Unit/Unit.cpp
-index 659ebef..dca3158 100755
+index 659ebef..745f5f3 100755
 --- a/src/server/game/Entities/Unit/Unit.cpp
 +++ b/src/server/game/Entities/Unit/Unit.cpp
 @@ -45,16 +45,16 @@
@@ -16042,10 +15978,15 @@ index 659ebef..dca3158 100755
 -    }
 -    //float orientation = (float)atan2((double)dy, (double)dx);
 -    SendMonsterMove(x, y, z, transitTime, player);
--}
--
++    Movement::MoveSplineInit init(*this);
++    init.MoveTo(x, y, z, generatePath, forceDestination);
++    init.SetVelocity(speed);
++    init.Launch();
+ }
+ 
 -void Unit::SetFacing(float ori, WorldObject* obj)
--{
++void Unit::UpdateSplineMovement(uint32 t_diff)
+ {
 -    SetOrientation(obj ? GetAngle(obj) : ori);
 -
 -    WorldPacket data(SMSG_MONSTER_MOVE, (1+12+4+1+(obj ? 8 : 4)+4+4+4+12+GetPackGUID().size()));
@@ -16092,15 +16033,10 @@ index 659ebef..dca3158 100755
 -    SendMessageToSet(&data, true);
 -
 -    ClearUnitState(UNIT_STAT_MOVE);
-+    Movement::MoveSplineInit init(*this);
-+    init.MoveTo(x, y, z, generatePath, forceDestination);
-+    init.SetVelocity(speed);
-+    init.Launch();
- }
- 
+-}
+-
 -void Unit::SendMonsterMove(float NewPosX, float NewPosY, float NewPosZ, uint32 Time, Player* player)
-+void Unit::UpdateSplineMovement(uint32 t_diff)
- {
+-{
 -    WorldPacket data(SMSG_MONSTER_MOVE, 1+12+4+1+4+4+4+12+GetPackGUID().size());
 -    data.append(GetPackGUID());
 -
@@ -16257,45 +16193,7 @@ index 659ebef..dca3158 100755
  }
  
  bool Unit::IsSitState() const
-@@ -15593,17 +15477,29 @@ void Unit::Kill(Unit* victim, bool durabilityLoss)
-     }
- 
-     // Hook for OnPVPKill Event
--    if (Player* killerPlr = ToPlayer())
-+    if (GetTypeId() == TYPEID_PLAYER)
-     {
--        if (Player* killedPlr = victim->ToPlayer())
--            sScriptMgr->OnPVPKill(killerPlr, killedPlr);
--        else if (Creature* killedCre = victim->ToCreature())
--            sScriptMgr->OnCreatureKill(killerPlr, killedCre);
-+        if (victim->GetTypeId() == TYPEID_PLAYER)
-+        {
-+            Player* killer = ToPlayer();
-+            Player* killed = victim->ToPlayer();
-+            sScriptMgr->OnPVPKill(killer, killed);
-+        }
-+        else if (victim->GetTypeId() == TYPEID_UNIT)
-+        {
-+            Player* killer = ToPlayer();
-+            Creature* killed = victim->ToCreature();
-+            sScriptMgr->OnCreatureKill(killer, killed);
-+        }
-     }
--    else if (Creature* killerCre = ToCreature())
-+    else if (GetTypeId() == TYPEID_UNIT)
-     {
--        if (Player* killed = victim->ToPlayer())
--            sScriptMgr->OnPlayerKilledByCreature(killerCre, killed);
-+        if (victim->GetTypeId() == TYPEID_PLAYER)
-+        {
-+            Creature* killer = ToCreature();
-+            Player* killed = victim->ToPlayer();
-+            sScriptMgr->OnPlayerKilledByCreature(killer, killed);
-+        }
-     }
- 
-     if (victim->GetVehicle())
-@@ -17076,7 +16972,7 @@ void Unit::_ExitVehicle(Position const* exitPosition)
+@@ -17076,7 +16960,7 @@ void Unit::_ExitVehicle(Position const* exitPosition)
  
      WorldPacket data2;
      BuildHeartBeatMsg(&data2);
@@ -16304,7 +16202,7 @@ index 659ebef..dca3158 100755
  
      if (vehicle->GetBase()->HasUnitTypeMask(UNIT_MASK_MINION))
          if (((Minion*)vehicle->GetBase())->GetOwner() == this)
-@@ -17095,25 +16991,6 @@ void Unit::_ExitVehicle(Position const* exitPosition)
+@@ -17095,25 +16979,6 @@ void Unit::_ExitVehicle(Position const* exitPosition)
  
  void Unit::BuildMovementPacket(ByteBuffer *data) const
  {
@@ -16330,7 +16228,7 @@ index 659ebef..dca3158 100755
      *data << uint32(GetUnitMovementFlags()); // movement flags
      *data << uint16(m_movementInfo.flags2);    // 2.3.0
      *data << uint32(getMSTime());            // time
-@@ -17177,13 +17054,13 @@ void Unit::SetFlying(bool apply)
+@@ -17177,13 +17042,13 @@ void Unit::SetFlying(bool apply)
  
  void Unit::NearTeleportTo(float x, float y, float z, float orientation, bool casting /*= false*/)
  {
@@ -16346,7 +16244,7 @@ index 659ebef..dca3158 100755
      }
  }
  
-@@ -17465,3 +17342,25 @@ bool CharmInfo::IsReturning()
+@@ -17465,3 +17330,25 @@ bool CharmInfo::IsReturning()
  {
      return m_isReturning;
  }
@@ -16597,33 +16495,8 @@ index 5906a7f..1fd6b55 100755
 -    SendMessageToSet(&data, true);
 -}
  #endif
-diff --git a/src/server/game/Globals/ObjectMgr.cpp b/src/server/game/Globals/ObjectMgr.cpp
-index 7557336..8226cce 100755
---- a/src/server/game/Globals/ObjectMgr.cpp
-+++ b/src/server/game/Globals/ObjectMgr.cpp
-@@ -3683,7 +3683,7 @@ void ObjectMgr::LoadQuests()
-     QueryResult result = WorldDatabase.Query("SELECT "
-         //0     1      2        3        4           5       6            7             8              9               10             11                 12
-         "Id, Method, Level, MinLevel, MaxLevel, ZoneOrSort, Type, SuggestedPlayers, LimitTime, RequiredClasses, RequiredRaces, RequiredSkillId, RequiredSkillPoints, "
--        //         13                 14                    15                   16                      17                  18                         19                  20                  
-+        //         13                 14                    15                   16                      17                  18                         19                  20
-         "RequiredFactionId1, RequiredFactionId2, RequiredFactionValue1, RequiredFactionValue2, RequiredMinRepFaction, RequiredMaxRepFaction, RequiredMinRepValue, RequiredMaxRepValue, "
-         //     21         22             23                24             25              26                    27                28            29              30              31
-         "PrevQuestId, NextQuestId, ExclusiveGroup, NextQuestIdChain, RewardXPId, RewardOrRequiredMoney, RewardMoneyMaxLevel, RewardSpell, RewardSpellCast, RewardHonor, RewardHonorMultiplier, "
-diff --git a/src/server/game/Guilds/Guild.cpp b/src/server/game/Guilds/Guild.cpp
-index 94fcbbd..59c107b 100755
---- a/src/server/game/Guilds/Guild.cpp
-+++ b/src/server/game/Guilds/Guild.cpp
-@@ -1993,7 +1993,6 @@ bool Guild::Validate()
-             }
-         }
-     }
--
-     if (broken_ranks)
-     {
-         m_ranks.clear();
 diff --git a/src/server/game/Maps/Map.cpp b/src/server/game/Maps/Map.cpp
-index f9b79b4..2fc64af 100755
+index f9b79b4..96b2cbd 100755
 --- a/src/server/game/Maps/Map.cpp
 +++ b/src/server/game/Maps/Map.cpp
 @@ -20,6 +20,7 @@
@@ -16671,27 +16544,7 @@ index f9b79b4..2fc64af 100755
      if (i_InstanceId == 0)
          LoadVMap(gx, gy);                                   // Only load the data for the base map
  }
-@@ -685,7 +705,8 @@ void Map::RemoveFromMap(T *obj, bool remove)
-     }
- }
- 
--void Map::PlayerRelocation(Player* player, float x, float y, float z, float orientation)
-+void
-+Map::PlayerRelocation(Player* player, float x, float y, float z, float orientation)
- {
-     ASSERT(player);
- 
-@@ -709,7 +730,8 @@ void Map::PlayerRelocation(Player* player, float x, float y, float z, float orie
-     player->UpdateObjectVisibility(false);
- }
- 
--void Map::CreatureRelocation(Creature* creature, float x, float y, float z, float ang, bool respawnRelocationOnFail)
-+void
-+Map::CreatureRelocation(Creature* creature, float x, float y, float z, float ang, bool respawnRelocationOnFail)
- {
-     ASSERT(CheckGridIntegrity(creature, false));
- 
-@@ -962,6 +984,7 @@ bool Map::UnloadGrid(NGridType& ngrid, bool unloadAll)
+@@ -962,6 +982,7 @@ bool Map::UnloadGrid(NGridType& ngrid, bool unloadAll)
              }
              // x and y are swapped
              VMAP::VMapFactory::createOrGetVMapManager()->unloadMap(GetId(), gx, gy);
@@ -16699,67 +16552,7 @@ index f9b79b4..2fc64af 100755
          }
          else
              ((MapInstanced*)m_parentMap)->RemoveGridMapReference(GridCoord(gx, gy));
-@@ -1159,7 +1182,7 @@ bool GridMap::loadHeihgtData(FILE* in, uint32 offset, uint32 /*size*/)
-     return true;
- }
- 
--bool GridMap::loadLiquidData(FILE* in, uint32 offset, uint32 /*size*/)
-+bool  GridMap::loadLiquidData(FILE* in, uint32 offset, uint32 /*size*/)
- {
-     map_liquidHeader header;
-     fseek(in, offset, SEEK_SET);
-@@ -1201,12 +1224,12 @@ uint16 GridMap::getArea(float x, float y)
-     return m_area_map[lx*16 + ly];
- }
- 
--float GridMap::getHeightFromFlat(float /*x*/, float /*y*/) const
-+float  GridMap::getHeightFromFlat(float /*x*/, float /*y*/) const
- {
-     return m_gridHeight;
- }
- 
--float GridMap::getHeightFromFloat(float x, float y) const
-+float  GridMap::getHeightFromFloat(float x, float y) const
- {
-     if (!m_V8 || !m_V9)
-         return m_gridHeight;
-@@ -1288,7 +1311,7 @@ float GridMap::getHeightFromFloat(float x, float y) const
-     return a * x + b * y + c;
- }
- 
--float GridMap::getHeightFromUint8(float x, float y) const
-+float  GridMap::getHeightFromUint8(float x, float y) const
- {
-     if (!m_uint8_V8 || !m_uint8_V9)
-         return m_gridHeight;
-@@ -1355,7 +1378,7 @@ float GridMap::getHeightFromUint8(float x, float y) const
-     return (float)((a * x) + (b * y) + c)*m_gridIntHeightMultiplier + m_gridHeight;
- }
- 
--float GridMap::getHeightFromUint16(float x, float y) const
-+float  GridMap::getHeightFromUint16(float x, float y) const
- {
-     if (!m_uint16_V8 || !m_uint16_V9)
-         return m_gridHeight;
-@@ -1422,7 +1445,7 @@ float GridMap::getHeightFromUint16(float x, float y) const
-     return (float)((a * x) + (b * y) + c)*m_gridIntHeightMultiplier + m_gridHeight;
- }
- 
--float GridMap::getLiquidLevel(float x, float y)
-+float  GridMap::getLiquidLevel(float x, float y)
- {
-     if (!m_liquid_map)
-         return m_liquidLevel;
-@@ -1441,7 +1464,7 @@ float GridMap::getLiquidLevel(float x, float y)
-     return m_liquid_map[cx_int*m_liquid_width + cy_int];
- }
- 
--uint8 GridMap::getTerrainType(float x, float y)
-+uint8  GridMap::getTerrainType(float x, float y)
- {
-     if (!m_liquid_type)
-         return 0;
-@@ -1528,6 +1551,24 @@ inline GridMap* Map::GetGrid(float x, float y)
+@@ -1528,6 +1549,24 @@ inline GridMap* Map::GetGrid(float x, float y)
      return GridMaps[gx][gy];
  }
  
@@ -16784,39 +16577,6 @@ index f9b79b4..2fc64af 100755
  float Map::GetHeight(float x, float y, float z, bool pUseVmaps, float maxSearchDist) const
  {
      // find raw .map surface under Z coordinates
-@@ -1824,7 +1865,7 @@ bool Map::CheckGridIntegrity(Creature* c, bool moved) const
-     return true;
- }
- 
--char const* Map::GetMapName() const
-+const char* Map::GetMapName() const
- {
-     return i_mapEntry ? i_mapEntry->name[sWorld->GetDefaultDbcLocale()] : "UNNAMEDMAP\x0";
- }
-@@ -2621,17 +2662,20 @@ void BattlegroundMap::RemoveAllPlayers()
-                     player->TeleportTo(player->GetBattlegroundEntryPoint());
- }
- 
--Creature* Map::GetCreature(uint64 guid)
-+Creature*
-+Map::GetCreature(uint64 guid)
- {
-     return ObjectAccessor::GetObjectInMap(guid, this, (Creature*)NULL);
- }
- 
--GameObject* Map::GetGameObject(uint64 guid)
-+GameObject*
-+Map::GetGameObject(uint64 guid)
- {
-     return ObjectAccessor::GetObjectInMap(guid, this, (GameObject*)NULL);
- }
- 
--DynamicObject* Map::GetDynamicObject(uint64 guid)
-+DynamicObject*
-+Map::GetDynamicObject(uint64 guid)
- {
-     return ObjectAccessor::GetObjectInMap(guid, this, (DynamicObject*)NULL);
- }
 diff --git a/src/server/game/Maps/Map.h b/src/server/game/Maps/Map.h
 index 5b652a2..ff1603f 100755
 --- a/src/server/game/Maps/Map.h
@@ -23960,57 +23720,6 @@ index 4236ef4..07bf855 100755
                  break;
  
              case SCRIPT_COMMAND_FLAG_SET:
-diff --git a/src/server/game/Server/Protocol/Handlers/AuctionHouseHandler.cpp b/src/server/game/Server/Protocol/Handlers/AuctionHouseHandler.cpp
-index 8c45b03..2f8a277 100755
---- a/src/server/game/Server/Protocol/Handlers/AuctionHouseHandler.cpp
-+++ b/src/server/game/Server/Protocol/Handlers/AuctionHouseHandler.cpp
-@@ -469,7 +469,6 @@ void WorldSession::HandleAuctionListBidderItems(WorldPacket & recv_data)
-     if (!creature)
-     {
-         sLog->outDebug(LOG_FILTER_NETWORKIO, "WORLD: HandleAuctionListBidderItems - Unit (GUID: %u) not found or you can't interact with him.", uint32(GUID_LOPART(guid)));
--        recv_data.rfinish();
-         return;
-     }
- 
-diff --git a/src/server/game/Server/Protocol/Handlers/CharacterHandler.cpp b/src/server/game/Server/Protocol/Handlers/CharacterHandler.cpp
-index aea6466..83b9ab0 100755
---- a/src/server/game/Server/Protocol/Handlers/CharacterHandler.cpp
-+++ b/src/server/game/Server/Protocol/Handlers/CharacterHandler.cpp
-@@ -1085,17 +1085,15 @@ void WorldSession::HandleSetFactionInactiveOpcode(WorldPacket & recv_data)
-     _player->GetReputationMgr().SetInactive(replistid, inactive);
- }
- 
--void WorldSession::HandleShowingHelmOpcode(WorldPacket& recv_data)
-+void WorldSession::HandleShowingHelmOpcode(WorldPacket & /*recv_data*/)
- {
-     sLog->outStaticDebug("CMSG_SHOWING_HELM for %s", _player->GetName());
--    recv_data.read_skip<uint8>(); // unknown, bool?
-     _player->ToggleFlag(PLAYER_FLAGS, PLAYER_FLAGS_HIDE_HELM);
- }
- 
--void WorldSession::HandleShowingCloakOpcode(WorldPacket& recv_data)
-+void WorldSession::HandleShowingCloakOpcode(WorldPacket & /*recv_data*/)
- {
-     sLog->outStaticDebug("CMSG_SHOWING_CLOAK for %s", _player->GetName());
--    recv_data.read_skip<uint8>(); // unknown, bool?
-     _player->ToggleFlag(PLAYER_FLAGS, PLAYER_FLAGS_HIDE_CLOAK);
- }
- 
-diff --git a/src/server/game/Server/Protocol/Handlers/QueryHandler.cpp b/src/server/game/Server/Protocol/Handlers/QueryHandler.cpp
-index 042b124..bf95161 100755
---- a/src/server/game/Server/Protocol/Handlers/QueryHandler.cpp
-+++ b/src/server/game/Server/Protocol/Handlers/QueryHandler.cpp
-@@ -413,10 +413,7 @@ void WorldSession::HandleQuestPOIQuery(WorldPacket& recv_data)
-     recv_data >> count; // quest count, max=25
- 
-     if (count >= MAX_QUEST_LOG_SIZE)
--    {
--        recv_data.rfinish();
-         return;
--    }
- 
-     WorldPacket data(SMSG_QUEST_POI_QUERY_RESPONSE, 4+(4+4)*count);
-     data << uint32(count); // count
 diff --git a/src/server/game/Server/Protocol/Handlers/TaxiHandler.cpp b/src/server/game/Server/Protocol/Handlers/TaxiHandler.cpp
 index fe6d3f0..e80f1b4 100755
 --- a/src/server/game/Server/Protocol/Handlers/TaxiHandler.cpp
@@ -24041,7 +23750,7 @@ index b690a81..ff8c0a0 100755
                  case 46699:                                     // Requires No Ammo
                      if (target->GetTypeId() == TYPEID_PLAYER)
 diff --git a/src/server/game/Spells/SpellEffects.cpp b/src/server/game/Spells/SpellEffects.cpp
-index 72a7c79..780b78b 100755
+index 72a7c79..5bd0067 100755
 --- a/src/server/game/Spells/SpellEffects.cpp
 +++ b/src/server/game/Spells/SpellEffects.cpp
 @@ -3388,22 +3388,11 @@ void Spell::EffectDistract(SpellEffIndex /*effIndex*/)
@@ -24088,27 +23797,6 @@ index 72a7c79..780b78b 100755
 +        m_caster->MonsterMoveWithSpeed(x, y, z, 24.f, true, true);
      }
  }
- 
-@@ -6432,15 +6422,14 @@ void Spell::EffectSummonDeadPet(SpellEffIndex /*effIndex*/)
-     if (effectHandleMode != SPELL_EFFECT_HANDLE_HIT)
-         return;
- 
--    Player* _player = m_caster->ToPlayer()
--
--    if (!_player)
-+    if (m_caster->GetTypeId() != TYPEID_PLAYER)
-         return;
--
-+    Player* _player = m_caster->ToPlayer();
-     Pet* pet = _player->GetPet();
--    if (!pet || pet->isAlive())
-+    if (!pet)
-+        return;
-+    if (pet->isAlive())
-         return;
--
-     if (damage < 0)
-         return;
  
 diff --git a/src/server/game/World/World.cpp b/src/server/game/World/World.cpp
 index a139c50..bfcdb5b 100755
