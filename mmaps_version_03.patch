@@ -1,8 +1,8 @@
-commit ca8b1a45a3e10f222ef4285ce7122a2880e284dd
+commit 94eedef65fab3954be58080980b60ff793fad331
 Author: Venugh <Venugh@gmx.net>
-Date:   Thu Dec 8 22:22:44 2011 +0100
+Date:   Sat Dec 10 14:10:38 2011 +0100
 
-    mmaps patch v.0.2.
+    mmaps patch v: 0.3.
 
 diff --git a/dep/CMakeLists.txt b/dep/CMakeLists.txt
 index f22286c..aff33f2 100644
@@ -15209,8 +15209,21 @@ index 1e0b212..53747d0 100644
              me->GetMotionMaster()->MoveTargetedHome();
      }
  
+diff --git a/src/server/game/AI/SmartScripts/SmartAI.cpp b/src/server/game/AI/SmartScripts/SmartAI.cpp
+index fde660e..afa7e9c 100644
+--- a/src/server/game/AI/SmartScripts/SmartAI.cpp
++++ b/src/server/game/AI/SmartScripts/SmartAI.cpp
+@@ -707,7 +707,7 @@ void SmartAI::SetRun(bool run)
+         me->RemoveUnitMovementFlag(MOVEMENTFLAG_WALKING);
+     else
+         me->AddUnitMovementFlag(MOVEMENTFLAG_WALKING);
+-
++    me->SendMovementFlagUpdate();
+     mRun = run;
+ }
+ 
 diff --git a/src/server/game/AI/SmartScripts/SmartScript.cpp b/src/server/game/AI/SmartScripts/SmartScript.cpp
-index c845f61..79448c9 100644
+index 9755055..79448c9 100644
 --- a/src/server/game/AI/SmartScripts/SmartScript.cpp
 +++ b/src/server/game/AI/SmartScripts/SmartScript.cpp
 @@ -1290,11 +1290,11 @@ void SmartScript::ProcessAction(SmartScriptHolder& e, Unit* unit, uint32 var0, u
@@ -15228,20 +15241,32 @@ index c845f61..79448c9 100644
  
              delete targets;
              break;
-diff --git a/src/server/game/Battlegrounds/Zones/BattlegroundSA.cpp b/src/server/game/Battlegrounds/Zones/BattlegroundSA.cpp
-index aaa29e1..21fe324 100755
---- a/src/server/game/Battlegrounds/Zones/BattlegroundSA.cpp
-+++ b/src/server/game/Battlegrounds/Zones/BattlegroundSA.cpp
-@@ -114,8 +114,8 @@ bool BattlegroundSA::ResetObjs()
-     }
+@@ -1493,7 +1493,7 @@ void SmartScript::ProcessAction(SmartScriptHolder& e, Unit* unit, uint32 var0, u
+                     else if (GameObject* goTarget = (*itr)->ToGameObject())
+                     {
+                         if (IsSmartGO(goTarget))
+-                            CAST_AI(SmartGameObjectAI, goTarget->AI())->SetScript9(e, e.action.timedActionList.id, GetLastInvoker());
++                            CAST_AI(SmartGameObjectAI, target->AI())->SetScript9(e, e.action.timedActionList.id, GetLastInvoker());
+                     }
+                 }
  
-     // MAD props for Kiper for discovering those values - 4 hours of his work.
--    GetBGObject(BG_SA_BOAT_ONE)->UpdateRotationFields(1.0f, 0.0002f);
--    GetBGObject(BG_SA_BOAT_TWO)->UpdateRotationFields(1.0f, 0.00001f);
-+    //GetBGObject(BG_SA_BOAT_ONE)->UpdateRotationFields(1.0f, 0.0002f);
-+    //GetBGObject(BG_SA_BOAT_TWO)->UpdateRotationFields(1.0f, 0.00001f);
-     SpawnBGObject(BG_SA_BOAT_ONE, RESPAWN_IMMEDIATELY);
-     SpawnBGObject(BG_SA_BOAT_TWO, RESPAWN_IMMEDIATELY);
+@@ -1610,7 +1610,7 @@ void SmartScript::ProcessAction(SmartScriptHolder& e, Unit* unit, uint32 var0, u
+                     else if (GameObject* goTarget = (*itr)->ToGameObject())
+                     {
+                         if (IsSmartGO(goTarget))
+-                            CAST_AI(SmartGameObjectAI, goTarget->AI())->SetScript9(e, id, GetLastInvoker());
++                            CAST_AI(SmartGameObjectAI, target->AI())->SetScript9(e, id, GetLastInvoker());
+                     }
+                 }
+ 
+@@ -1640,7 +1640,7 @@ void SmartScript::ProcessAction(SmartScriptHolder& e, Unit* unit, uint32 var0, u
+                     else if (GameObject* goTarget = (*itr)->ToGameObject())
+                     {
+                         if (IsSmartGO(goTarget))
+-                            CAST_AI(SmartGameObjectAI, goTarget->AI())->SetScript9(e, id, GetLastInvoker());
++                            CAST_AI(SmartGameObjectAI, target->AI())->SetScript9(e, id, GetLastInvoker());
+                     }
+                 }
  
 diff --git a/src/server/game/CMakeLists.txt b/src/server/game/CMakeLists.txt
 index 65ba160..c2a8e7c 100644
@@ -15563,192 +15588,8 @@ index 6ae9fa9..f04c61f 100755
  
          bool LoadFromDB(uint32 guid, Map* map) { return LoadCreatureFromDB(guid, map, false); }
          bool LoadCreatureFromDB(uint32 guid, Map* map, bool addToMap = true);
-diff --git a/src/server/game/Entities/GameObject/GameObject.cpp b/src/server/game/Entities/GameObject/GameObject.cpp
-index de1b0f8..249834c 100755
---- a/src/server/game/Entities/GameObject/GameObject.cpp
-+++ b/src/server/game/Entities/GameObject/GameObject.cpp
-@@ -29,6 +29,7 @@
- #include "ScriptMgr.h"
- #include "CreatureAISelector.h"
- #include "Group.h"
-+#include <G3D\Quat.h>
- 
- GameObject::GameObject() : WorldObject(), m_goValue(new GameObjectValue), m_AI(NULL)
- {
-@@ -184,10 +185,10 @@ bool GameObject::Create(uint32 guidlow, uint32 name_id, Map* map, uint32 phaseMa
-         return false;
-     }
- 
--    SetFloatValue(GAMEOBJECT_PARENTROTATION+0, rotation0);
--    SetFloatValue(GAMEOBJECT_PARENTROTATION+1, rotation1);
--
--    UpdateRotationFields(rotation2, rotation3);              // GAMEOBJECT_FACING, GAMEOBJECT_ROTATION, GAMEOBJECT_PARENTROTATION+2/3
-+    SetWorldRotation(rotation0,rotation1,rotation2,rotation3);
-+    // For most of gameobjects is (0, 0, 0, 1) quaternion, only transports has not standart rotation
-+    // TODO: store these values in DB
-+    SetTransportPathRotation(0, 0, 0, 1.f);
- 
-     SetFloatValue(OBJECT_FIELD_SCALE_X, goinfo->size);
- 
-@@ -659,10 +660,10 @@ void GameObject::SaveToDB(uint32 mapid, uint8 spawnMask, uint32 phaseMask)
-     data.posY = GetPositionY();
-     data.posZ = GetPositionZ();
-     data.orientation = GetOrientation();
--    data.rotation0 = GetFloatValue(GAMEOBJECT_PARENTROTATION+0);
--    data.rotation1 = GetFloatValue(GAMEOBJECT_PARENTROTATION+1);
--    data.rotation2 = GetFloatValue(GAMEOBJECT_PARENTROTATION+2);
--    data.rotation3 = GetFloatValue(GAMEOBJECT_PARENTROTATION+3);
-+    data.rotation0 = m_quatX;
-+    data.rotation1 = m_quatY;
-+    data.rotation2 = m_quatZ;
-+    data.rotation3 = m_quatW;
-     data.spawntimesecs = m_spawnedByDefault ? m_respawnDelayTime : -(int32)m_respawnDelayTime;
-     data.animprogress = GetGoAnimProgress();
-     data.go_state = GetGoState();
-@@ -681,10 +682,10 @@ void GameObject::SaveToDB(uint32 mapid, uint8 spawnMask, uint32 phaseMask)
-         << GetPositionY() << ','
-         << GetPositionZ() << ','
-         << GetOrientation() << ','
--        << GetFloatValue(GAMEOBJECT_PARENTROTATION) << ','
--        << GetFloatValue(GAMEOBJECT_PARENTROTATION+1) << ','
--        << GetFloatValue(GAMEOBJECT_PARENTROTATION+2) << ','
--        << GetFloatValue(GAMEOBJECT_PARENTROTATION+3) << ','
-+        << m_quatX << ','
-+        << m_quatY << ','
-+        << m_quatZ << ','
-+        << m_quatW << ','
-         << m_respawnDelayTime << ','
-         << uint32(GetGoAnimProgress()) << ','
-         << uint32(GetGoState()) << ')';
-@@ -1681,34 +1682,71 @@ const char* GameObject::GetNameForLocaleIdx(LocaleConstant loc_idx) const
-     return GetName();
- }
- 
--void GameObject::UpdateRotationFields(float rotation2 /*=0.0f*/, float rotation3 /*=0.0f*/)
-+using G3D::Quat;
-+struct QuaternionCompressed
- {
--    static double const atan_pow = atan(pow(2.0f, -20.0f));
- 
--    double f_rot1 = sin(GetOrientation() / 2.0f);
--    double f_rot2 = cos(GetOrientation() / 2.0f);
-+    QuaternionCompressed() : m_raw(0) {}
-+    QuaternionCompressed(int64 val) : m_raw(val) {}
-+    QuaternionCompressed(const Quat& quat) { Set(quat); }
- 
--    int64 i_rot1 = int64(f_rot1 / atan_pow *(f_rot2 >= 0 ? 1.0f : -1.0f));
--    int64 rotation = (i_rot1 << 43 >> 43) & 0x00000000001FFFFF;
-+    enum{
-+        PACK_COEFF_YZ = 1 << 20,
-+        PACK_COEFF_X = 1 << 21,
-+    };
- 
--    //float f_rot2 = sin(0.0f / 2.0f);
--    //int64 i_rot2 = f_rot2 / atan(pow(2.0f, -20.0f));
--    //rotation |= (((i_rot2 << 22) >> 32) >> 11) & 0x000003FFFFE00000;
-+    void Set(const Quat& quat)
-+    {
-+        int8 w_sign = (quat.w >= 0 ? 1 : -1);
-+        int64 X = int32(quat.x * PACK_COEFF_X) * w_sign & ((1 << 22) - 1);
-+        int64 Y = int32(quat.y * PACK_COEFF_YZ) * w_sign & ((1 << 21) - 1);
-+        int64 Z = int32(quat.z * PACK_COEFF_YZ) * w_sign & ((1 << 21) - 1);
-+        m_raw = Z | (Y << 21) | (X << 42);
-+    }
- 
--    //float f_rot3 = sin(0.0f / 2.0f);
--    //int64 i_rot3 = f_rot3 / atan(pow(2.0f, -21.0f));
--    //rotation |= (i_rot3 >> 42) & 0x7FFFFC0000000000;
-+    Quat Unpack() const
-+    {
- 
--    m_rotation = rotation;
-+        double x = (double)(m_raw >> 42) / (double)PACK_COEFF_X;
-+        double y = (double)(m_raw << 22 >> 43) / (double)PACK_COEFF_YZ;
-+        double z = (double)(m_raw << 43 >> 43) / (double)PACK_COEFF_YZ;
-+        double w = 1 - (x * x + y * y + z * z);
-+        ASSERT(w >= 0);
-+        w = sqrt(w);
- 
--    if (rotation2 == 0.0f && rotation3 == 0.0f)
--    {
--        rotation2 = (float)f_rot1;
--        rotation3 = (float)f_rot2;
--    }
-+        return Quat(x,y,z,w);
-+     }
-+
-+    int64 m_raw;
-+};
- 
--    SetFloatValue(GAMEOBJECT_PARENTROTATION+2, rotation2);
--    SetFloatValue(GAMEOBJECT_PARENTROTATION+3, rotation3);
-+void GameObject::SetWorldRotation(float qx, float qy, float qz, float qw)
-+{
-+    Quat quat(qx, qy, qz, qw);
-+    // Temporary solution for gameobjects that has no rotation data in DB:
-+    if (qz == 0 && qw == 0)
-+        quat = Quat::fromAxisAngleRotation(G3D::Vector3::unitZ(), GetOrientation());
-+
-+    quat.unitize();
-+    m_rotation = QuaternionCompressed(quat).m_raw;
-+    m_quatX = quat.x;
-+    m_quatY = quat.y;
-+    m_quatZ = quat.z;
-+    m_quatW = quat.w;
-+}
-+
-+void GameObject::SetTransportPathRotation(float qx, float qy, float qz, float qw)
-+{
-+    SetFloatValue(GAMEOBJECT_PARENTROTATION+0, qx);
-+    SetFloatValue(GAMEOBJECT_PARENTROTATION+1, qy);
-+    SetFloatValue(GAMEOBJECT_PARENTROTATION+2, qz);
-+    SetFloatValue(GAMEOBJECT_PARENTROTATION+3, qw);
-+}
-+
-+void GameObject::SetWorldRotationAngles(float z_rot, float y_rot, float x_rot)
-+{
-+    Quat quat( G3D::Matrix3::fromEulerAnglesZYX(z_rot, y_rot, x_rot) );
-+    SetWorldRotation(quat.x, quat.y, quat.z, quat.w);
- }
- 
- void GameObject::ModifyHealth(int32 change, Unit* attackerOrHealer /*= NULL*/, uint32 spellId /*= 0*/)
-diff --git a/src/server/game/Entities/GameObject/GameObject.h b/src/server/game/Entities/GameObject/GameObject.h
-index c475871..1b6fc7c 100755
---- a/src/server/game/Entities/GameObject/GameObject.h
-+++ b/src/server/game/Entities/GameObject/GameObject.h
-@@ -635,7 +635,11 @@ class GameObject : public WorldObject, public GridObject<GameObject>
- 
-         uint32 GetDBTableGUIDLow() const { return m_DBTableGuid; }
- 
--        void UpdateRotationFields(float rotation2 = 0.0f, float rotation3 = 0.0f);
-+        // z_rot, y_rot, x_rot - rotation angles around z, y and x axes
-+        void SetWorldRotationAngles(float z_rot, float y_rot, float x_rot);
-+        void SetWorldRotation(float qx, float qy, float qz, float qw);
-+        void SetTransportPathRotation(float qx, float qy, float qz, float qw);      // transforms(rotates) transport's path
-+        int64 GetRotation() const { return m_rotation; }
- 
-         void Say(int32 textId, uint32 language, uint64 TargetGuid) { MonsterSay(textId, language, TargetGuid); }
-         void Yell(int32 textId, uint32 language, uint64 TargetGuid) { MonsterYell(textId, language, TargetGuid); }
-@@ -784,7 +788,6 @@ class GameObject : public WorldObject, public GridObject<GameObject>
- 
-         void EventInform(uint32 eventId);
- 
--        uint64 GetRotation() const { return m_rotation; }
-         virtual uint32 GetScriptId() const { return GetGOInfo()->ScriptId; }
-         GameObjectAI* AI() const { return m_AI; }
- 
-@@ -812,7 +815,8 @@ class GameObject : public WorldObject, public GridObject<GameObject>
-         GameObjectData const* m_goData;
-         GameObjectValue * const m_goValue;
- 
--        uint64 m_rotation;
-+        int64 m_rotation;
-+        float m_quatX, m_quatY, m_quatZ, m_quatW;
- 
-         uint16 m_LootMode;                                  // bitmask, default LOOT_MODE_DEFAULT, determines what loot will be lootable
-     private:
 diff --git a/src/server/game/Entities/Object/Object.cpp b/src/server/game/Entities/Object/Object.cpp
-index 978d9ac..024a291 100755
+index d4723cb..a84134e 100755
 --- a/src/server/game/Entities/Object/Object.cpp
 +++ b/src/server/game/Entities/Object/Object.cpp
 @@ -45,6 +45,7 @@
@@ -15847,15 +15688,6 @@ index 978d9ac..024a291 100755
      }
      else
      {
-@@ -487,7 +430,7 @@ void Object::_BuildMovementUpdate(ByteBuffer * data, uint16 flags) const
-     // 0x200
-     if (flags & UPDATEFLAG_ROTATION)
-     {
--        *data << uint64(((GameObject*)this)->GetRotation());
-+        *data << int64(((GameObject*)this)->GetRotation());
-     }
- }
- 
 @@ -1584,6 +1527,70 @@ void WorldObject::UpdateGroundPositionZ(float x, float y, float &z) const
          z = new_z+ 0.05f;                                   // just to be sure that we are not a few pixel under the surface
  }
@@ -15927,7 +15759,28 @@ index 978d9ac..024a291 100755
  bool Position::IsPositionValid() const
  {
      return Trinity::IsValidMapCoord(m_positionX, m_positionY, m_positionZ, m_orientation);
-@@ -2015,7 +2022,8 @@ void Unit::BuildHeartBeatMsg(WorldPacket* data) const
+@@ -1642,7 +1649,7 @@ bool WorldObject::canSeeOrDetect(WorldObject const* obj, bool ignoreStealth, boo
+     bool corpseVisibility = false;
+     if (distanceCheck)
+     {
+-        if (Player const* thisPlayer = ToPlayer())
++        if (const Player* thisPlayer = ToPlayer())
+         {
+             if (thisPlayer->isDead() && thisPlayer->GetHealth() > 0 && // Cheap way to check for ghost state
+                 !(obj->m_serverSideVisibility.GetValue(SERVERSIDE_VISIBILITY_GHOST) & m_serverSideVisibility.GetValue(SERVERSIDE_VISIBILITY_GHOST) & GHOST_VISIBILITY_GHOST))
+@@ -1675,9 +1682,9 @@ bool WorldObject::canSeeOrDetect(WorldObject const* obj, bool ignoreStealth, boo
+     if (!corpseVisibility && !(obj->m_serverSideVisibility.GetValue(SERVERSIDE_VISIBILITY_GHOST) & m_serverSideVisibilityDetect.GetValue(SERVERSIDE_VISIBILITY_GHOST)))
+     {
+         // Alive players can see dead players in some cases, but other objects can't do that
+-        if (Player const* thisPlayer = ToPlayer())
++        if (const Player* thisPlayer = ToPlayer())
+         {
+-            if (Player const* objPlayer = obj->ToPlayer())
++            if (const Player* objPlayer = obj->ToPlayer())
+             {
+                 if (thisPlayer->GetTeam() != objPlayer->GetTeam() || !thisPlayer->IsGroupVisibleFor(objPlayer))
+                     return false;
+@@ -2015,9 +2022,11 @@ void Unit::BuildHeartBeatMsg(WorldPacket* data) const
  
  void WorldObject::SendMessageToSet(WorldPacket* data, bool self)
  {
@@ -15936,8 +15789,11 @@ index 978d9ac..024a291 100755
 +        SendMessageToSetInRange(data, GetVisibilityRange(), self);
  }
  
- 
-@@ -2503,7 +2511,7 @@ void WorldObject::GetNearPoint2D(float &x, float &y, float distance2d, float abs
++
+ void WorldObject::SendMessageToSetInRange(WorldPacket* data, float dist, bool /*self*/)
+ {
+     Trinity::MessageDistDeliverer notifier(this, data, dist);
+@@ -2502,7 +2511,7 @@ void WorldObject::GetNearPoint2D(float &x, float &y, float distance2d, float abs
  void WorldObject::GetNearPoint(WorldObject const* /*searcher*/, float &x, float &y, float &z, float searcher_size, float distance2d, float absAngle) const
  {
      GetNearPoint2D(x, y, distance2d+searcher_size, absAngle);
@@ -15946,7 +15802,7 @@ index 978d9ac..024a291 100755
      UpdateGroundPositionZ(x, y, z);
  
      /*
-@@ -2519,8 +2527,10 @@ void WorldObject::GetNearPoint(WorldObject const* /*searcher*/, float &x, float
+@@ -2518,8 +2527,10 @@ void WorldObject::GetNearPoint(WorldObject const* /*searcher*/, float &x, float
      float first_y = y;
      bool first_los_conflict = false;                        // first point LOS problems
  
@@ -15958,7 +15814,7 @@ index 978d9ac..024a291 100755
  
      // adding used positions around object
      {
-@@ -2544,7 +2554,7 @@ void WorldObject::GetNearPoint(WorldObject const* /*searcher*/, float &x, float
+@@ -2543,7 +2554,7 @@ void WorldObject::GetNearPoint(WorldObject const* /*searcher*/, float &x, float
      {
          UpdateGroundPositionZ(x, y, z);                       // update to LOS height if available
  
@@ -15967,7 +15823,7 @@ index 978d9ac..024a291 100755
              return;
  
          first_los_conflict = true;                          // first point have LOS problems
-@@ -2559,7 +2569,7 @@ void WorldObject::GetNearPoint(WorldObject const* /*searcher*/, float &x, float
+@@ -2558,7 +2569,7 @@ void WorldObject::GetNearPoint(WorldObject const* /*searcher*/, float &x, float
          z = GetPositionZ();
          UpdateGroundPositionZ(x, y, z);                       // update to LOS height if available
  
@@ -15976,7 +15832,7 @@ index 978d9ac..024a291 100755
              return;
      }
  
-@@ -2573,7 +2583,7 @@ void WorldObject::GetNearPoint(WorldObject const* /*searcher*/, float &x, float
+@@ -2572,7 +2583,7 @@ void WorldObject::GetNearPoint(WorldObject const* /*searcher*/, float &x, float
          z = GetPositionZ();
          UpdateGroundPositionZ(x, y, z);                       // update to LOS height if available
  
@@ -16086,7 +15942,7 @@ index 651b99e..802a398 100755
          uint32 GetResurrectionSpellId();
          void ResurrectPlayer(float restore_percent, bool applySickness = false);
 diff --git a/src/server/game/Entities/Unit/Unit.cpp b/src/server/game/Entities/Unit/Unit.cpp
-index 2e2f559..8640424 100755
+index 659ebef..dca3158 100755
 --- a/src/server/game/Entities/Unit/Unit.cpp
 +++ b/src/server/game/Entities/Unit/Unit.cpp
 @@ -45,16 +45,16 @@
@@ -16186,15 +16042,10 @@ index 2e2f559..8640424 100755
 -    }
 -    //float orientation = (float)atan2((double)dy, (double)dx);
 -    SendMonsterMove(x, y, z, transitTime, player);
-+    Movement::MoveSplineInit init(*this);
-+    init.MoveTo(x, y, z, generatePath, forceDestination);
-+    init.SetVelocity(speed);
-+    init.Launch();
- }
- 
+-}
+-
 -void Unit::SetFacing(float ori, WorldObject* obj)
-+void Unit::UpdateSplineMovement(uint32 t_diff)
- {
+-{
 -    SetOrientation(obj ? GetAngle(obj) : ori);
 -
 -    WorldPacket data(SMSG_MONSTER_MOVE, (1+12+4+1+(obj ? 8 : 4)+4+4+4+12+GetPackGUID().size()));
@@ -16241,10 +16092,15 @@ index 2e2f559..8640424 100755
 -    SendMessageToSet(&data, true);
 -
 -    ClearUnitState(UNIT_STAT_MOVE);
--}
--
++    Movement::MoveSplineInit init(*this);
++    init.MoveTo(x, y, z, generatePath, forceDestination);
++    init.SetVelocity(speed);
++    init.Launch();
+ }
+ 
 -void Unit::SendMonsterMove(float NewPosX, float NewPosY, float NewPosZ, uint32 Time, Player* player)
--{
++void Unit::UpdateSplineMovement(uint32 t_diff)
+ {
 -    WorldPacket data(SMSG_MONSTER_MOVE, 1+12+4+1+4+4+4+12+GetPackGUID().size());
 -    data.append(GetPackGUID());
 -
@@ -16353,7 +16209,7 @@ index 2e2f559..8640424 100755
  bool Unit::isInAccessiblePlaceFor(Creature const* c) const
  {
      if (IsInWater())
-@@ -12712,7 +12598,7 @@ void Unit::setDeathState(DeathState s)
+@@ -12732,7 +12618,7 @@ void Unit::setDeathState(DeathState s)
          ClearDiminishings();
          GetMotionMaster()->Clear(false);
          GetMotionMaster()->MoveIdle();
@@ -16362,7 +16218,7 @@ index 2e2f559..8640424 100755
          // without this when removing IncreaseMaxHealth aura player may stuck with 1 hp
          // do not why since in IncreaseMaxHealth currenthealth is checked
          SetHealth(0);
-@@ -13529,7 +13415,7 @@ void Unit::SetHealth(uint32 val)
+@@ -13549,7 +13435,7 @@ void Unit::SetHealth(uint32 val)
  {
      if (getDeathState() == JUST_DIED)
          val = 0;
@@ -16371,7 +16227,7 @@ index 2e2f559..8640424 100755
          val = 1;
      else
      {
-@@ -14641,22 +14527,20 @@ void Unit::StopMoving()
+@@ -14661,22 +14547,20 @@ void Unit::StopMoving()
  {
      ClearUnitState(UNIT_STAT_MOVING);
  
@@ -16401,7 +16257,45 @@ index 2e2f559..8640424 100755
  }
  
  bool Unit::IsSitState() const
-@@ -17068,7 +16952,7 @@ void Unit::_ExitVehicle(Position const* exitPosition)
+@@ -15593,17 +15477,29 @@ void Unit::Kill(Unit* victim, bool durabilityLoss)
+     }
+ 
+     // Hook for OnPVPKill Event
+-    if (Player* killerPlr = ToPlayer())
++    if (GetTypeId() == TYPEID_PLAYER)
+     {
+-        if (Player* killedPlr = victim->ToPlayer())
+-            sScriptMgr->OnPVPKill(killerPlr, killedPlr);
+-        else if (Creature* killedCre = victim->ToCreature())
+-            sScriptMgr->OnCreatureKill(killerPlr, killedCre);
++        if (victim->GetTypeId() == TYPEID_PLAYER)
++        {
++            Player* killer = ToPlayer();
++            Player* killed = victim->ToPlayer();
++            sScriptMgr->OnPVPKill(killer, killed);
++        }
++        else if (victim->GetTypeId() == TYPEID_UNIT)
++        {
++            Player* killer = ToPlayer();
++            Creature* killed = victim->ToCreature();
++            sScriptMgr->OnCreatureKill(killer, killed);
++        }
+     }
+-    else if (Creature* killerCre = ToCreature())
++    else if (GetTypeId() == TYPEID_UNIT)
+     {
+-        if (Player* killed = victim->ToPlayer())
+-            sScriptMgr->OnPlayerKilledByCreature(killerCre, killed);
++        if (victim->GetTypeId() == TYPEID_PLAYER)
++        {
++            Creature* killer = ToCreature();
++            Player* killed = victim->ToPlayer();
++            sScriptMgr->OnPlayerKilledByCreature(killer, killed);
++        }
+     }
+ 
+     if (victim->GetVehicle())
+@@ -17076,7 +16972,7 @@ void Unit::_ExitVehicle(Position const* exitPosition)
  
      WorldPacket data2;
      BuildHeartBeatMsg(&data2);
@@ -16410,7 +16304,7 @@ index 2e2f559..8640424 100755
  
      if (vehicle->GetBase()->HasUnitTypeMask(UNIT_MASK_MINION))
          if (((Minion*)vehicle->GetBase())->GetOwner() == this)
-@@ -17087,25 +16971,6 @@ void Unit::_ExitVehicle(Position const* exitPosition)
+@@ -17095,25 +16991,6 @@ void Unit::_ExitVehicle(Position const* exitPosition)
  
  void Unit::BuildMovementPacket(ByteBuffer *data) const
  {
@@ -16436,7 +16330,7 @@ index 2e2f559..8640424 100755
      *data << uint32(GetUnitMovementFlags()); // movement flags
      *data << uint16(m_movementInfo.flags2);    // 2.3.0
      *data << uint32(getMSTime());            // time
-@@ -17169,13 +17034,13 @@ void Unit::SetFlying(bool apply)
+@@ -17177,13 +17054,13 @@ void Unit::SetFlying(bool apply)
  
  void Unit::NearTeleportTo(float x, float y, float z, float orientation, bool casting /*= false*/)
  {
@@ -16452,7 +16346,7 @@ index 2e2f559..8640424 100755
      }
  }
  
-@@ -17457,3 +17322,25 @@ bool CharmInfo::IsReturning()
+@@ -17465,3 +17342,25 @@ bool CharmInfo::IsReturning()
  {
      return m_isReturning;
  }
@@ -16704,30 +16598,32 @@ index 5906a7f..1fd6b55 100755
 -}
  #endif
 diff --git a/src/server/game/Globals/ObjectMgr.cpp b/src/server/game/Globals/ObjectMgr.cpp
-index be61a9b..3a22121 100755
+index 7557336..8226cce 100755
 --- a/src/server/game/Globals/ObjectMgr.cpp
 +++ b/src/server/game/Globals/ObjectMgr.cpp
-@@ -1832,6 +1832,18 @@ void ObjectMgr::LoadGameobjects()
-         int16 gameEvent     = fields[16].GetInt16();
-         uint32 PoolId        = fields[17].GetUInt32();
- 
-+        if (data.rotation0 < -1.0f || data.rotation0 > 1.0f)
-+        {
-+            sLog->outErrorDb("Table `gameobject` have gameobject (GUID: %u Entry: %u) with invalid rotation0 (%f) value, skip", guid, data.id, data.rotation0);
-+            continue;
-+        }
-+
-+        if (data.rotation1 < -1.0f || data.rotation1 > 1.0f)
-+        {
-+            sLog->outErrorDb("Table `gameobject` have gameobject (GUID: %u Entry: %u) with invalid rotation1 (%f) value, skip", guid, data.id, data.rotation1);
-+            continue;
-+        }
-+
-         if (data.rotation2 < -1.0f || data.rotation2 > 1.0f)
-         {
-             sLog->outErrorDb("Table `gameobject` has gameobject (GUID: %u Entry: %u) with invalid rotation2 (%f) value, skip", guid, data.id, data.rotation2);
+@@ -3683,7 +3683,7 @@ void ObjectMgr::LoadQuests()
+     QueryResult result = WorldDatabase.Query("SELECT "
+         //0     1      2        3        4           5       6            7             8              9               10             11                 12
+         "Id, Method, Level, MinLevel, MaxLevel, ZoneOrSort, Type, SuggestedPlayers, LimitTime, RequiredClasses, RequiredRaces, RequiredSkillId, RequiredSkillPoints, "
+-        //         13                 14                    15                   16                      17                  18                         19                  20                  
++        //         13                 14                    15                   16                      17                  18                         19                  20
+         "RequiredFactionId1, RequiredFactionId2, RequiredFactionValue1, RequiredFactionValue2, RequiredMinRepFaction, RequiredMaxRepFaction, RequiredMinRepValue, RequiredMaxRepValue, "
+         //     21         22             23                24             25              26                    27                28            29              30              31
+         "PrevQuestId, NextQuestId, ExclusiveGroup, NextQuestIdChain, RewardXPId, RewardOrRequiredMoney, RewardMoneyMaxLevel, RewardSpell, RewardSpellCast, RewardHonor, RewardHonorMultiplier, "
+diff --git a/src/server/game/Guilds/Guild.cpp b/src/server/game/Guilds/Guild.cpp
+index 94fcbbd..59c107b 100755
+--- a/src/server/game/Guilds/Guild.cpp
++++ b/src/server/game/Guilds/Guild.cpp
+@@ -1993,7 +1993,6 @@ bool Guild::Validate()
+             }
+         }
+     }
+-
+     if (broken_ranks)
+     {
+         m_ranks.clear();
 diff --git a/src/server/game/Maps/Map.cpp b/src/server/game/Maps/Map.cpp
-index 13a4763..2fc64af 100755
+index f9b79b4..2fc64af 100755
 --- a/src/server/game/Maps/Map.cpp
 +++ b/src/server/game/Maps/Map.cpp
 @@ -20,6 +20,7 @@
@@ -16775,7 +16671,27 @@ index 13a4763..2fc64af 100755
      if (i_InstanceId == 0)
          LoadVMap(gx, gy);                                   // Only load the data for the base map
  }
-@@ -964,6 +984,7 @@ bool Map::UnloadGrid(NGridType& ngrid, bool unloadAll)
+@@ -685,7 +705,8 @@ void Map::RemoveFromMap(T *obj, bool remove)
+     }
+ }
+ 
+-void Map::PlayerRelocation(Player* player, float x, float y, float z, float orientation)
++void
++Map::PlayerRelocation(Player* player, float x, float y, float z, float orientation)
+ {
+     ASSERT(player);
+ 
+@@ -709,7 +730,8 @@ void Map::PlayerRelocation(Player* player, float x, float y, float z, float orie
+     player->UpdateObjectVisibility(false);
+ }
+ 
+-void Map::CreatureRelocation(Creature* creature, float x, float y, float z, float ang, bool respawnRelocationOnFail)
++void
++Map::CreatureRelocation(Creature* creature, float x, float y, float z, float ang, bool respawnRelocationOnFail)
+ {
+     ASSERT(CheckGridIntegrity(creature, false));
+ 
+@@ -962,6 +984,7 @@ bool Map::UnloadGrid(NGridType& ngrid, bool unloadAll)
              }
              // x and y are swapped
              VMAP::VMapFactory::createOrGetVMapManager()->unloadMap(GetId(), gx, gy);
@@ -16783,7 +16699,67 @@ index 13a4763..2fc64af 100755
          }
          else
              ((MapInstanced*)m_parentMap)->RemoveGridMapReference(GridCoord(gx, gy));
-@@ -1530,6 +1551,24 @@ inline GridMap* Map::GetGrid(float x, float y)
+@@ -1159,7 +1182,7 @@ bool GridMap::loadHeihgtData(FILE* in, uint32 offset, uint32 /*size*/)
+     return true;
+ }
+ 
+-bool GridMap::loadLiquidData(FILE* in, uint32 offset, uint32 /*size*/)
++bool  GridMap::loadLiquidData(FILE* in, uint32 offset, uint32 /*size*/)
+ {
+     map_liquidHeader header;
+     fseek(in, offset, SEEK_SET);
+@@ -1201,12 +1224,12 @@ uint16 GridMap::getArea(float x, float y)
+     return m_area_map[lx*16 + ly];
+ }
+ 
+-float GridMap::getHeightFromFlat(float /*x*/, float /*y*/) const
++float  GridMap::getHeightFromFlat(float /*x*/, float /*y*/) const
+ {
+     return m_gridHeight;
+ }
+ 
+-float GridMap::getHeightFromFloat(float x, float y) const
++float  GridMap::getHeightFromFloat(float x, float y) const
+ {
+     if (!m_V8 || !m_V9)
+         return m_gridHeight;
+@@ -1288,7 +1311,7 @@ float GridMap::getHeightFromFloat(float x, float y) const
+     return a * x + b * y + c;
+ }
+ 
+-float GridMap::getHeightFromUint8(float x, float y) const
++float  GridMap::getHeightFromUint8(float x, float y) const
+ {
+     if (!m_uint8_V8 || !m_uint8_V9)
+         return m_gridHeight;
+@@ -1355,7 +1378,7 @@ float GridMap::getHeightFromUint8(float x, float y) const
+     return (float)((a * x) + (b * y) + c)*m_gridIntHeightMultiplier + m_gridHeight;
+ }
+ 
+-float GridMap::getHeightFromUint16(float x, float y) const
++float  GridMap::getHeightFromUint16(float x, float y) const
+ {
+     if (!m_uint16_V8 || !m_uint16_V9)
+         return m_gridHeight;
+@@ -1422,7 +1445,7 @@ float GridMap::getHeightFromUint16(float x, float y) const
+     return (float)((a * x) + (b * y) + c)*m_gridIntHeightMultiplier + m_gridHeight;
+ }
+ 
+-float GridMap::getLiquidLevel(float x, float y)
++float  GridMap::getLiquidLevel(float x, float y)
+ {
+     if (!m_liquid_map)
+         return m_liquidLevel;
+@@ -1441,7 +1464,7 @@ float GridMap::getLiquidLevel(float x, float y)
+     return m_liquid_map[cx_int*m_liquid_width + cy_int];
+ }
+ 
+-uint8 GridMap::getTerrainType(float x, float y)
++uint8  GridMap::getTerrainType(float x, float y)
+ {
+     if (!m_liquid_type)
+         return 0;
+@@ -1528,6 +1551,24 @@ inline GridMap* Map::GetGrid(float x, float y)
      return GridMaps[gx][gy];
  }
  
@@ -16808,6 +16784,39 @@ index 13a4763..2fc64af 100755
  float Map::GetHeight(float x, float y, float z, bool pUseVmaps, float maxSearchDist) const
  {
      // find raw .map surface under Z coordinates
+@@ -1824,7 +1865,7 @@ bool Map::CheckGridIntegrity(Creature* c, bool moved) const
+     return true;
+ }
+ 
+-char const* Map::GetMapName() const
++const char* Map::GetMapName() const
+ {
+     return i_mapEntry ? i_mapEntry->name[sWorld->GetDefaultDbcLocale()] : "UNNAMEDMAP\x0";
+ }
+@@ -2621,17 +2662,20 @@ void BattlegroundMap::RemoveAllPlayers()
+                     player->TeleportTo(player->GetBattlegroundEntryPoint());
+ }
+ 
+-Creature* Map::GetCreature(uint64 guid)
++Creature*
++Map::GetCreature(uint64 guid)
+ {
+     return ObjectAccessor::GetObjectInMap(guid, this, (Creature*)NULL);
+ }
+ 
+-GameObject* Map::GetGameObject(uint64 guid)
++GameObject*
++Map::GetGameObject(uint64 guid)
+ {
+     return ObjectAccessor::GetObjectInMap(guid, this, (GameObject*)NULL);
+ }
+ 
+-DynamicObject* Map::GetDynamicObject(uint64 guid)
++DynamicObject*
++Map::GetDynamicObject(uint64 guid)
+ {
+     return ObjectAccessor::GetObjectInMap(guid, this, (DynamicObject*)NULL);
+ }
 diff --git a/src/server/game/Maps/Map.h b/src/server/game/Maps/Map.h
 index 5b652a2..ff1603f 100755
 --- a/src/server/game/Maps/Map.h
@@ -16945,6 +16954,324 @@ index a99d0f3..b03d305 100755
 +};
 +
  #endif
+diff --git a/src/server/game/Movement/DestinationHolder.cpp b/src/server/game/Movement/DestinationHolder.cpp
+deleted file mode 100755
+index 6247111..0000000
+--- a/src/server/game/Movement/DestinationHolder.cpp
++++ /dev/null
+@@ -1,20 +0,0 @@
+-/*
+- * Copyright (C) 2008-2011 TrinityCore <http://www.trinitycore.org/>
+- * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
+- *
+- * This program is free software; you can redistribute it and/or modify it
+- * under the terms of the GNU General Public License as published by the
+- * Free Software Foundation; either version 2 of the License, or (at your
+- * option) any later version.
+- *
+- * This program is distributed in the hope that it will be useful, but WITHOUT
+- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+- * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+- * more details.
+- *
+- * You should have received a copy of the GNU General Public License along
+- * with this program. If not, see <http://www.gnu.org/licenses/>.
+- */
+-
+-#include "DestinationHolder.h"
+-
+diff --git a/src/server/game/Movement/DestinationHolder.h b/src/server/game/Movement/DestinationHolder.h
+deleted file mode 100755
+index 2b36fe4..0000000
+--- a/src/server/game/Movement/DestinationHolder.h
++++ /dev/null
+@@ -1,65 +0,0 @@
+-/*
+- * Copyright (C) 2008-2011 TrinityCore <http://www.trinitycore.org/>
+- * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
+- *
+- * This program is free software; you can redistribute it and/or modify it
+- * under the terms of the GNU General Public License as published by the
+- * Free Software Foundation; either version 2 of the License, or (at your
+- * option) any later version.
+- *
+- * This program is distributed in the hope that it will be useful, but WITHOUT
+- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+- * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+- * more details.
+- *
+- * You should have received a copy of the GNU General Public License along
+- * with this program. If not, see <http://www.gnu.org/licenses/>.
+- */
+-
+-#ifndef TRINITY_DESTINATION_HOLDER_H
+-#define TRINITY_DESTINATION_HOLDER_H
+-
+-#include "Define.h"
+-#include "Timer.h"
+-
+-class WorldObject;
+-class Map;
+-
+-#define TRAVELLER_UPDATE_INTERVAL  300
+-
+-template<typename TRAVELLER>
+-class DestinationHolder
+-{
+-    TimeTrackerSmall i_tracker;
+-    uint32 i_totalTravelTime;
+-    uint32 i_timeElapsed;
+-    bool i_destSet;
+-    float i_fromX, i_fromY, i_fromZ;
+-    float i_destX, i_destY, i_destZ;
+-
+-    public:
+-        DestinationHolder() : i_tracker(TRAVELLER_UPDATE_INTERVAL), i_totalTravelTime(0), i_timeElapsed(0),
+-            i_destSet(false), i_fromX(0), i_fromY(0), i_fromZ(0), i_destX(0), i_destY(0), i_destZ(0) {}
+-
+-        uint32 SetDestination(TRAVELLER &traveller, float dest_x, float dest_y, float dest_z, bool sendMove = true);
+-        void GetDestination(float &x, float &y, float &z) const { x = i_destX; y = i_destY; z = i_destZ; }
+-        bool UpdateExpired(void) const { return i_tracker.Passed(); }
+-        void ResetUpdate(uint32 t = TRAVELLER_UPDATE_INTERVAL) { i_tracker.Reset(t); }
+-        uint32 GetTotalTravelTime(void) const { return i_totalTravelTime; }
+-        void IncreaseTravelTime(uint32 increment) { i_totalTravelTime += increment; }
+-        void ResetTravelTime() { i_totalTravelTime = 0; }
+-        bool HasDestination(void) const { return i_destSet; }
+-        float GetDestinationDiff(float x, float y, float z) const;
+-        bool HasArrived(void) const { return (i_totalTravelTime == 0 || i_timeElapsed >= i_totalTravelTime); }
+-        bool UpdateTraveller(TRAVELLER &traveller, uint32 diff, bool micro_movement=false);
+-        uint32 StartTravel(TRAVELLER &traveller, bool sendMove = true);
+-        void GetLocationNow(const Map* map, float &x, float &y, float &z, bool is3D = false) const;
+-        void GetLocationNowNoMicroMovement(float &x, float &y, float &z) const; // For use without micro movement
+-        float GetDistance3dFromDestSq(const WorldObject &obj) const;
+-
+-    private:
+-        void _findOffSetPoint(float x1, float y1, float x2, float y2, float offset, float &x, float &y);
+-
+-};
+-#endif
+-
+diff --git a/src/server/game/Movement/DestinationHolderImp.h b/src/server/game/Movement/DestinationHolderImp.h
+deleted file mode 100755
+index 84e7fbf..0000000
+--- a/src/server/game/Movement/DestinationHolderImp.h
++++ /dev/null
+@@ -1,215 +0,0 @@
+-/*
+- * Copyright (C) 2008-2011 TrinityCore <http://www.trinitycore.org/>
+- * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
+- *
+- * This program is free software; you can redistribute it and/or modify it
+- * under the terms of the GNU General Public License as published by the
+- * Free Software Foundation; either version 2 of the License, or (at your
+- * option) any later version.
+- *
+- * This program is distributed in the hope that it will be useful, but WITHOUT
+- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+- * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+- * more details.
+- *
+- * You should have received a copy of the GNU General Public License along
+- * with this program. If not, see <http://www.gnu.org/licenses/>.
+- */
+-
+-#ifndef TRINITY_DESTINATIONHOLDERIMP_H
+-#define TRINITY_DESTINATIONHOLDERIMP_H
+-
+-#include "MapManager.h"
+-#include "DestinationHolder.h"
+-
+-#include <cmath>
+-
+-template<typename TRAVELLER>
+-void
+-DestinationHolder<TRAVELLER>::_findOffSetPoint(float x1, float y1, float x2, float y2, float offset, float &x, float &y)
+-{
+-    /* given the point (x1, y1) and (x2, y2).. need to find the point (x, y) on the same line
+-     * such that the distance from (x, y) to (x2, y2) is offset.
+-     * Let the distance of p1 to p2 = d.. then the ratio of offset/d = (x2-x)/(x2-x1)
+-     * hence x = x2 - (offset/d)*(x2-x1)
+-     * like wise offset/d = (y2-y)/(y2-y1);
+-     */
+-    if (offset == 0)
+-    {
+-        x = x2;
+-        y = y2;
+-    }
+-    else
+-    {
+-        double x_diff = double(x2 - x1);
+-        double y_diff = double(y2 - y1);
+-        double distance_d = (double)((x_diff*x_diff) + (y_diff * y_diff));
+-        if (distance_d == 0)
+-        {
+-            x = x2;
+-            y = y2;
+-        }
+-        else
+-        {
+-            distance_d = ::sqrt(distance_d);                // starting distance
+-            double distance_ratio = (double)(distance_d - offset)/(double)distance_d;
+-            // line above has revised formula which is more correct, I think
+-            x = (float)(x1 + (distance_ratio*x_diff));
+-            y = (float)(y1 + (distance_ratio*y_diff));
+-        }
+-    }
+-}
+-
+-template<typename TRAVELLER>
+-uint32
+-DestinationHolder<TRAVELLER>::SetDestination(TRAVELLER &traveller, float dest_x, float dest_y, float dest_z, bool sendMove)
+-{
+-    i_destSet = true;
+-    i_destX = dest_x;
+-    i_destY = dest_y;
+-    i_destZ = dest_z;
+-
+-    return StartTravel(traveller, sendMove);
+-}
+-
+-template<typename TRAVELLER>
+-uint32
+-DestinationHolder<TRAVELLER>::StartTravel(TRAVELLER &traveller, bool sendMove)
+-{
+-    if (!i_destSet) return 0;
+-
+-    i_fromX = traveller.GetPositionX();
+-    i_fromY = traveller.GetPositionY();
+-    i_fromZ = traveller.GetPositionZ();
+-
+-    i_totalTravelTime = traveller.GetTotalTrevelTimeTo(i_destX, i_destY, i_destZ);
+-    i_timeElapsed = 0;
+-    if (sendMove)
+-        traveller.MoveTo(i_destX, i_destY, i_destZ, i_totalTravelTime);
+-    return i_totalTravelTime;
+-}
+-
+-template<typename TRAVELLER>
+-bool
+-DestinationHolder<TRAVELLER>::UpdateTraveller(TRAVELLER &traveller, uint32 diff, bool micro_movement)
+-{
+-    i_timeElapsed += diff;
+-
+-    // Update every TRAVELLER_UPDATE_INTERVAL
+-    i_tracker.Update(diff);
+-    if (!i_tracker.Passed())
+-        return false;
+-    else
+-        ResetUpdate();
+-
+-    if (!i_destSet) return true;
+-
+-    float x, y, z;
+-    if (!micro_movement)
+-        GetLocationNowNoMicroMovement(x, y, z);
+-    else
+-    {
+-        if (!traveller.GetTraveller().HasUnitState(UNIT_STAT_MOVING | UNIT_STAT_IN_FLIGHT))
+-            return true;
+-
+-        if (traveller.GetTraveller().HasUnitState(UNIT_STAT_IN_FLIGHT))
+-            GetLocationNow(traveller.GetTraveller().GetBaseMap(), x, y, z, true);                  // Should reposition Object with right Coord, so I can bypass some Grid Relocation
+-        else
+-            GetLocationNow(traveller.GetTraveller().GetBaseMap(), x, y, z, false);
+-
+-        // Change movement computation to micro movement based on last tick coords, this makes system work
+-        // even on multiple floors zones without hugh vmaps usage ;)
+-
+-        // Take care of underrun of uint32
+-        if (i_totalTravelTime >= i_timeElapsed)
+-            i_totalTravelTime -= i_timeElapsed;     // Consider only the remaining part
+-        else
+-            i_totalTravelTime = 0;
+-
+-        i_timeElapsed = 0;
+-        i_fromX = x;                            // and change origine
+-        i_fromY = y;                            // then I take into account only micro movement
+-        i_fromZ = z;
+-    }
+-
+-    if (traveller.GetTraveller().GetPositionX() != x || traveller.GetTraveller().GetPositionY() != y || traveller.GetTraveller().GetPositionZ() != z)
+-    {
+-        float ori = traveller.GetTraveller().GetAngle(x, y);
+-        traveller.Relocation(x, y, z, ori);
+-    }
+-
+-    return true;
+-}
+-
+-template<typename TRAVELLER>
+-void
+-DestinationHolder<TRAVELLER>::GetLocationNow(const Map* map, float &x, float &y, float &z, bool is3D) const
+-{
+-    if (HasArrived())
+-    {
+-        x = i_destX;
+-        y = i_destY;
+-        z = i_destZ;
+-    }
+-    else if (HasDestination())
+-    {
+-        double percent_passed = (double)i_timeElapsed / (double)i_totalTravelTime;
+-        const float distanceX = (float)((i_destX - i_fromX) * percent_passed);
+-        const float distanceY = (float)((i_destY - i_fromY) * percent_passed);
+-        const float distanceZ = (float)((i_destZ - i_fromZ) * percent_passed);
+-        x = i_fromX + distanceX;
+-        y = i_fromY + distanceY;
+-        float z2 = i_fromZ + distanceZ;
+-        // All that is not finished but previous code neither... Traveller need be able to swim.
+-        if (is3D)
+-            z = z2;
+-        else
+-        {
+-            //That part is good for mob Walking on the floor. But the floor is not always what we thought.
+-            z = map->GetHeight(x, y, i_fromZ, false); // Disable cave check
+-            const float groundDist = sqrt(distanceX*distanceX + distanceY*distanceY);
+-            const float zDist = fabs(i_fromZ - z) + 0.000001f;
+-            const float slope = groundDist / zDist;
+-            if (slope < 1.0f)  // This prevents the ground returned by GetHeight to be used when in cave
+-                z = z2; // a climb or jump of more than 45 is denied
+-        }
+-    }
+-}
+-
+-template<typename TRAVELLER>
+-float
+-DestinationHolder<TRAVELLER>::GetDistance3dFromDestSq(const WorldObject &obj) const
+-{
+-    float x, y, z;
+-    obj.GetPosition(x, y, z);
+-    return (i_destX-x)*(i_destX-x)+(i_destY-y)*(i_destY-y)+(i_destZ-z)*(i_destZ-z);
+-}
+-
+-template<typename TRAVELLER>
+-float
+-DestinationHolder<TRAVELLER>::GetDestinationDiff(float x, float y, float z) const
+-{
+-    return sqrt(((x-i_destX)*(x-i_destX)) + ((y-i_destY)*(y-i_destY)) + ((z-i_destZ)*(z-i_destZ)));
+-}
+-
+-template<typename TRAVELLER>
+-void
+-DestinationHolder<TRAVELLER>::GetLocationNowNoMicroMovement(float &x, float &y, float &z) const
+-{
+-    if (HasArrived())
+-    {
+-        x = i_destX;
+-        y = i_destY;
+-        z = i_destZ;
+-    }
+-    else
+-    {
+-        double percent_passed = (double)i_timeElapsed / (double)i_totalTravelTime;
+-        x = (float)(i_fromX + ((i_destX - i_fromX) * percent_passed));
+-        y = (float)(i_fromY + ((i_destY - i_fromY) * percent_passed));
+-        z = (float)(i_fromZ + ((i_destZ - i_fromZ) * percent_passed));
+-    }
+-}
+-
+-#endif
+-
 diff --git a/src/server/game/Movement/MotionMaster.cpp b/src/server/game/Movement/MotionMaster.cpp
 index ec928e7..147ac6b 100755
 --- a/src/server/game/Movement/MotionMaster.cpp
@@ -23396,6 +23723,164 @@ index 0000000..f0ed01c
 +        return str;
 +    }
 +}
+diff --git a/src/server/game/Movement/Traveller.h b/src/server/game/Movement/Traveller.h
+deleted file mode 100755
+index 9cd6a6c..0000000
+--- a/src/server/game/Movement/Traveller.h
++++ /dev/null
+@@ -1,152 +0,0 @@
+-/*
+- * Copyright (C) 2008-2011 TrinityCore <http://www.trinitycore.org/>
+- * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
+- *
+- * This program is free software; you can redistribute it and/or modify it
+- * under the terms of the GNU General Public License as published by the
+- * Free Software Foundation; either version 2 of the License, or (at your
+- * option) any later version.
+- *
+- * This program is distributed in the hope that it will be useful, but WITHOUT
+- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+- * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+- * more details.
+- *
+- * You should have received a copy of the GNU General Public License along
+- * with this program. If not, see <http://www.gnu.org/licenses/>.
+- */
+-
+-#ifndef TRINITY_TRAVELLER_H
+-#define TRINITY_TRAVELLER_H
+-
+-#include "Creature.h"
+-#include "Player.h"
+-#include <cassert>
+-
+-/** Traveller is a wrapper for units (creatures or players) that
+- * travel from point A to point B using the destination holder.
+- */
+-#define PLAYER_FLIGHT_SPEED        32.0f
+-
+-template<class T>
+-struct Traveller
+-{
+-    T &i_traveller;
+-    Traveller(T &t) : i_traveller(t) {}
+-    Traveller(const Traveller &obj) : i_traveller(obj) {}
+-    Traveller& operator=(const Traveller &obj)
+-    {
+-        this.i_traveller = obj.i_traveller;
+-        return *this;
+-    }
+-
+-    operator T&(void) { return i_traveller; }
+-    operator const T&(void) { return i_traveller; }
+-    float GetPositionX() const { return i_traveller.GetPositionX(); }
+-    float GetPositionY() const { return i_traveller.GetPositionY(); }
+-    float GetPositionZ() const { return i_traveller.GetPositionZ(); }
+-    T& GetTraveller(void) { return i_traveller; }
+-
+-    float Speed(void) { ASSERT(false); return 0.0f; }
+-    float GetMoveDestinationTo(float x, float y, float z);
+-    uint32 GetTotalTrevelTimeTo(float x, float y, float z);
+-
+-    void Relocation(float x, float y, float z, float orientation) {}
+-    void Relocation(float x, float y, float z) { Relocation(x, y, z, i_traveller.GetOrientation()); }
+-    void MoveTo(float x, float y, float z, uint32 t) {}
+-};
+-
+-template<class T>
+-inline uint32 Traveller<T>::GetTotalTrevelTimeTo(float x, float y, float z)
+-{
+-    float dist = GetMoveDestinationTo(x, y, z);
+-    float speed = Speed();
+-    if (speed < 0.0f)
+-        return 0xfffffffe;  // almost infinity-unit should stop
+-    else
+-        speed *= 0.001f;   // speed is in seconds so convert from second to millisecond
+-    return static_cast<uint32>(dist/speed);
+-}
+-
+-// specialization for creatures
+-template<>
+-inline float Traveller<Creature>::Speed()
+-{
+-    if (i_traveller.HasUnitState(UNIT_STAT_CHARGING))
+-        return i_traveller.m_TempSpeed;
+-    else if (i_traveller.HasUnitMovementFlag(MOVEMENTFLAG_WALKING))
+-        return i_traveller.GetSpeed(MOVE_WALK);
+-    else if (i_traveller.HasUnitMovementFlag(MOVEMENTFLAG_FLYING))
+-        return i_traveller.GetSpeed(MOVE_FLIGHT);
+-    else
+-        return i_traveller.GetSpeed(MOVE_RUN);
+-}
+-
+-template<>
+-inline void Traveller<Creature>::Relocation(float x, float y, float z, float orientation)
+-{
+-    i_traveller.UpdatePosition(x, y, z, orientation);
+-}
+-
+-template<>
+-inline float Traveller<Creature>::GetMoveDestinationTo(float x, float y, float z)
+-{
+-    float dx = x - GetPositionX();
+-    float dy = y - GetPositionY();
+-    float dz = z - GetPositionZ();
+-
+-    //if (i_traveller.HasUnitMovementFlag(MOVEMENTFLAG_FLYING))
+-        return sqrt((dx*dx) + (dy*dy) + (dz*dz));
+-    //else                                                    //Walking on the ground
+-    //    return sqrt((dx*dx) + (dy*dy));
+-}
+-
+-template<>
+-inline void Traveller<Creature>::MoveTo(float x, float y, float z, uint32 t)
+-{
+-    //i_traveller.AI_SendMoveToPacket(x, y, z, t, i_traveller.GetUnitMovementFlags(), 0);
+-    i_traveller.SendMonsterMove(x, y, z, t);
+-}
+-
+-// specialization for players
+-template<>
+-inline float Traveller<Player>::Speed()
+-{
+-    if (i_traveller.HasUnitState(UNIT_STAT_CHARGING))
+-        return i_traveller.m_TempSpeed;
+-    else if (i_traveller.isInFlight())
+-        return PLAYER_FLIGHT_SPEED;
+-    else
+-        return i_traveller.GetSpeed(i_traveller.m_movementInfo.HasMovementFlag(MOVEMENTFLAG_WALKING) ? MOVE_WALK : MOVE_RUN);
+-}
+-
+-template<>
+-inline float Traveller<Player>::GetMoveDestinationTo(float x, float y, float z)
+-{
+-    float dx = x - GetPositionX();
+-    float dy = y - GetPositionY();
+-    float dz = z - GetPositionZ();
+-
+-    //if (i_traveller.isInFlight())
+-        return sqrt((dx*dx) + (dy*dy) + (dz*dz));
+-    //else                                                    //Walking on the ground
+-    //    return sqrt((dx*dx) + (dy*dy));
+-}
+-
+-template<>
+-inline void Traveller<Player>::Relocation(float x, float y, float z, float orientation)
+-{
+-    i_traveller.UpdatePosition(x, y, z, orientation);
+-}
+-
+-template<>
+-inline void Traveller<Player>::MoveTo(float x, float y, float z, uint32 t)
+-{
+-    //Only send MOVEMENTFLAG_WALKING, client has strange issues with other move flags
+-    i_traveller.SendMonsterMove(x, y, z, t);
+-}
+-
+-typedef Traveller<Creature> CreatureTraveller;
+-typedef Traveller<Player> PlayerTraveller;
+-#endif
+-
 diff --git a/src/server/game/Movement/Waypoints/Path.h b/src/server/game/Movement/Waypoints/Path.h
 index f9a5551..f6949d4 100755
 --- a/src/server/game/Movement/Waypoints/Path.h
@@ -23475,6 +23960,57 @@ index 4236ef4..07bf855 100755
                  break;
  
              case SCRIPT_COMMAND_FLAG_SET:
+diff --git a/src/server/game/Server/Protocol/Handlers/AuctionHouseHandler.cpp b/src/server/game/Server/Protocol/Handlers/AuctionHouseHandler.cpp
+index 8c45b03..2f8a277 100755
+--- a/src/server/game/Server/Protocol/Handlers/AuctionHouseHandler.cpp
++++ b/src/server/game/Server/Protocol/Handlers/AuctionHouseHandler.cpp
+@@ -469,7 +469,6 @@ void WorldSession::HandleAuctionListBidderItems(WorldPacket & recv_data)
+     if (!creature)
+     {
+         sLog->outDebug(LOG_FILTER_NETWORKIO, "WORLD: HandleAuctionListBidderItems - Unit (GUID: %u) not found or you can't interact with him.", uint32(GUID_LOPART(guid)));
+-        recv_data.rfinish();
+         return;
+     }
+ 
+diff --git a/src/server/game/Server/Protocol/Handlers/CharacterHandler.cpp b/src/server/game/Server/Protocol/Handlers/CharacterHandler.cpp
+index aea6466..83b9ab0 100755
+--- a/src/server/game/Server/Protocol/Handlers/CharacterHandler.cpp
++++ b/src/server/game/Server/Protocol/Handlers/CharacterHandler.cpp
+@@ -1085,17 +1085,15 @@ void WorldSession::HandleSetFactionInactiveOpcode(WorldPacket & recv_data)
+     _player->GetReputationMgr().SetInactive(replistid, inactive);
+ }
+ 
+-void WorldSession::HandleShowingHelmOpcode(WorldPacket& recv_data)
++void WorldSession::HandleShowingHelmOpcode(WorldPacket & /*recv_data*/)
+ {
+     sLog->outStaticDebug("CMSG_SHOWING_HELM for %s", _player->GetName());
+-    recv_data.read_skip<uint8>(); // unknown, bool?
+     _player->ToggleFlag(PLAYER_FLAGS, PLAYER_FLAGS_HIDE_HELM);
+ }
+ 
+-void WorldSession::HandleShowingCloakOpcode(WorldPacket& recv_data)
++void WorldSession::HandleShowingCloakOpcode(WorldPacket & /*recv_data*/)
+ {
+     sLog->outStaticDebug("CMSG_SHOWING_CLOAK for %s", _player->GetName());
+-    recv_data.read_skip<uint8>(); // unknown, bool?
+     _player->ToggleFlag(PLAYER_FLAGS, PLAYER_FLAGS_HIDE_CLOAK);
+ }
+ 
+diff --git a/src/server/game/Server/Protocol/Handlers/QueryHandler.cpp b/src/server/game/Server/Protocol/Handlers/QueryHandler.cpp
+index 042b124..bf95161 100755
+--- a/src/server/game/Server/Protocol/Handlers/QueryHandler.cpp
++++ b/src/server/game/Server/Protocol/Handlers/QueryHandler.cpp
+@@ -413,10 +413,7 @@ void WorldSession::HandleQuestPOIQuery(WorldPacket& recv_data)
+     recv_data >> count; // quest count, max=25
+ 
+     if (count >= MAX_QUEST_LOG_SIZE)
+-    {
+-        recv_data.rfinish();
+         return;
+-    }
+ 
+     WorldPacket data(SMSG_QUEST_POI_QUERY_RESPONSE, 4+(4+4)*count);
+     data << uint32(count); // count
 diff --git a/src/server/game/Server/Protocol/Handlers/TaxiHandler.cpp b/src/server/game/Server/Protocol/Handlers/TaxiHandler.cpp
 index fe6d3f0..e80f1b4 100755
 --- a/src/server/game/Server/Protocol/Handlers/TaxiHandler.cpp
@@ -23488,7 +24024,7 @@ index fe6d3f0..e80f1b4 100755
  void WorldSession::HandleTaxiNodeStatusQueryOpcode(WorldPacket & recv_data)
  {
 diff --git a/src/server/game/Spells/Auras/SpellAuraEffects.cpp b/src/server/game/Spells/Auras/SpellAuraEffects.cpp
-index c4487fb..051e136 100755
+index b690a81..ff8c0a0 100755
 --- a/src/server/game/Spells/Auras/SpellAuraEffects.cpp
 +++ b/src/server/game/Spells/Auras/SpellAuraEffects.cpp
 @@ -4751,11 +4751,7 @@ void AuraEffect::HandleAuraDummy(AuraApplication const* aurApp, uint8 mode, bool
@@ -23505,7 +24041,7 @@ index c4487fb..051e136 100755
                  case 46699:                                     // Requires No Ammo
                      if (target->GetTypeId() == TYPEID_PLAYER)
 diff --git a/src/server/game/Spells/SpellEffects.cpp b/src/server/game/Spells/SpellEffects.cpp
-index e42294f..780b78b 100755
+index 72a7c79..780b78b 100755
 --- a/src/server/game/Spells/SpellEffects.cpp
 +++ b/src/server/game/Spells/SpellEffects.cpp
 @@ -3388,22 +3388,11 @@ void Spell::EffectDistract(SpellEffIndex /*effIndex*/)
@@ -23553,8 +24089,29 @@ index e42294f..780b78b 100755
      }
  }
  
+@@ -6432,15 +6422,14 @@ void Spell::EffectSummonDeadPet(SpellEffIndex /*effIndex*/)
+     if (effectHandleMode != SPELL_EFFECT_HANDLE_HIT)
+         return;
+ 
+-    Player* _player = m_caster->ToPlayer()
+-
+-    if (!_player)
++    if (m_caster->GetTypeId() != TYPEID_PLAYER)
+         return;
+-
++    Player* _player = m_caster->ToPlayer();
+     Pet* pet = _player->GetPet();
+-    if (!pet || pet->isAlive())
++    if (!pet)
++        return;
++    if (pet->isAlive())
+         return;
+-
+     if (damage < 0)
+         return;
+ 
 diff --git a/src/server/game/World/World.cpp b/src/server/game/World/World.cpp
-index 8aca456..45a7077 100755
+index a139c50..bfcdb5b 100755
 --- a/src/server/game/World/World.cpp
 +++ b/src/server/game/World/World.cpp
 @@ -54,6 +54,7 @@
@@ -23642,44 +24199,6 @@ index de660b8..eada8d1 100644
    ${CMAKE_SOURCE_DIR}/src/server/game/Opcodes
    ${CMAKE_SOURCE_DIR}/src/server/game/OutdoorPvP
    ${CMAKE_SOURCE_DIR}/src/server/game/Pools
-diff --git a/src/server/scripts/Commands/cs_gobject.cpp b/src/server/scripts/Commands/cs_gobject.cpp
-index eb1ccc5..82cd808 100644
---- a/src/server/scripts/Commands/cs_gobject.cpp
-+++ b/src/server/scripts/Commands/cs_gobject.cpp
-@@ -401,26 +401,17 @@ public:
-             return false;
-         }
- 
--        char* orientation = strtok(NULL, " ");
--        float o;
--
--        if (orientation)
--            o = (float)atof(orientation);
--        else
--        {
--            Player* player = handler->GetSession()->GetPlayer();
--            o = player->GetOrientation();
--        }
-+        char* toZ = strtok(NULL, " ");
-+        char* toY = strtok(NULL, " ");
-+        char* toX = strtok(NULL, " ");
- 
--        object->Relocate(object->GetPositionX(), object->GetPositionY(), object->GetPositionZ(), o);
--        object->UpdateRotationFields();
--        object->DestroyForNearbyPlayers();
--        object->UpdateObjectVisibility();
-+        if (!toZ || !toY || !toX)
-+            return false;
- 
-+        object->SetWorldRotationAngles((float)atof(toZ), (float)atof(toY), (float)atof(toX));
-         object->SaveToDB();
--        object->Refresh();
- 
--        handler->PSendSysMessage(LANG_COMMAND_TURNOBJMESSAGE, object->GetGUIDLow(), object->GetGOInfo()->name.c_str(), object->GetGUIDLow(), o);
-+        handler->PSendSysMessage(LANG_COMMAND_TURNOBJMESSAGE, object->GetGUIDLow(), object->GetGOInfo()->name.c_str(), object->GetGUIDLow());
- 
-         return true;
-     }
 diff --git a/src/server/scripts/Commands/cs_npc.cpp b/src/server/scripts/Commands/cs_npc.cpp
 index b9ac21c..9c0ae13 100644
 --- a/src/server/scripts/Commands/cs_npc.cpp
@@ -24006,7 +24525,7 @@ index 829f681..03a7163 100644
  
                      DoCast(me, SPELL_BLINK);
 diff --git a/src/server/scripts/Outland/BlackTemple/boss_illidan.cpp b/src/server/scripts/Outland/BlackTemple/boss_illidan.cpp
-index a690f3c..d37e5c7 100644
+index ec7f9a8..36fd84a 100644
 --- a/src/server/scripts/Outland/BlackTemple/boss_illidan.cpp
 +++ b/src/server/scripts/Outland/BlackTemple/boss_illidan.cpp
 @@ -1982,7 +1982,7 @@ void boss_illidan_stormrage::boss_illidan_stormrageAI::HandleTalkSequence()
@@ -24226,6 +24745,31 @@ index cdd9b04..559e2bd 100644
    ${JEMALLOC_LIBRARY}
    ${READLINE_LIBRARY}
    ${TERMCAP_LIBRARY}
+diff --git a/src/server/worldserver/worldserver.conf.dist b/src/server/worldserver/worldserver.conf.dist
+index a8c0d91..f5053eb 100644
+--- a/src/server/worldserver/worldserver.conf.dist
++++ b/src/server/worldserver/worldserver.conf.dist
+@@ -301,6 +301,20 @@ vmap.petLOS = 1
+ 
+ vmap.enableIndoorCheck = 1
+ 
++#    mmap.enablePathFinding
++#        Description: Enable/Disable pathfinding using mmaps
++#        Default:     1 - (Enabled)
++#                     0 - (Disabled)
++
++mmap.enablePathFinding = 1
++
++#
++#    mmap.ignoreMapIds
++#        Disable mmap pathfinding on the listed maps.
++#        List of map ids with delimiter ','
++
++mmap.ignoreMapIds ""
++
+ #
+ #    DetectPosCollision
+ #        Description: Check final move position, summon position, etc for visible collision with
 diff --git a/src/tools/CMakeLists.txt b/src/tools/CMakeLists.txt
 index 64a7dcb..6355a53 100644
 --- a/src/tools/CMakeLists.txt
