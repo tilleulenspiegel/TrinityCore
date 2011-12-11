@@ -16,9 +16,9 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-
 #include "MMapFactory.h"
 #include "World.h"
+#include "Config.h"
 #include <set>
 
 namespace MMAP
@@ -59,8 +59,8 @@ namespace MMAP
 
     bool MMapFactory::IsPathfindingEnabled(uint32 mapId)
     {
-        return sWorld->getBoolConfig(CONFIG_ENABLE_MMAPS)
-            && g_mmapDisabledIds->find(mapId) == g_mmapDisabledIds->end();
+        bool enablePathFinding = ConfigMgr::GetBoolDefault("mmap.enablePathFinding", true);
+        return enablePathFinding && g_mmapDisabledIds->find(mapId) == g_mmapDisabledIds->end();
     }
 
     void MMapFactory::clear()
