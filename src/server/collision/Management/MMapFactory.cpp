@@ -59,8 +59,8 @@ namespace MMAP
 
     bool MMapFactory::IsPathfindingEnabled(uint32 mapId)
     {
-        bool enablePathFinding = ConfigMgr::GetBoolDefault("mmap.enablePathFinding", true);
-        return enablePathFinding && g_mmapDisabledIds->find(mapId) == g_mmapDisabledIds->end();
+        return sWorld->getBoolConfig(CONFIG_ENABLE_MMAPS)
+            && g_mmapDisabledIds->find(mapId) == g_mmapDisabledIds->end();
     }
 
     void MMapFactory::clear()
