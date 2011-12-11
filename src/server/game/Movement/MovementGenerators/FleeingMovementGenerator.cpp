@@ -29,8 +29,7 @@
 #define MAX_QUIET_DISTANCE 43.0f
 
 template<class T>
-void
-FleeingMovementGenerator<T>::_setTargetLocation(T &owner)
+void FleeingMovementGenerator<T>::_setTargetLocation(T &owner)
 {
     if (!&owner)
         return;
@@ -70,7 +69,6 @@ bool FleeingMovementGenerator<T>::_getPoint(T &owner, float &x, float &y, float 
     if (Unit* fright = ObjectAccessor::GetUnit(owner, i_frightGUID))
     {
         dist_from_caster = fright->GetDistance(&owner);
-
         if (dist_from_caster > 0.2f)
             angle_to_caster = fright->GetAngle(&owner);
         else
@@ -132,6 +130,7 @@ void FleeingMovementGenerator<Player>::Finalize(Player &owner)
 {
     owner.RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_FLEEING);
     owner.ClearUnitState(UNIT_STAT_FLEEING|UNIT_STAT_FLEEING_MOVE);
+    owner.StopMoving();
 }
 
 template<>

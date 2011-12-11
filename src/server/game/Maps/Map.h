@@ -432,6 +432,18 @@ class Map : public GridRefManager<NGridType>
         InstanceMap* ToInstanceMap(){ if (IsDungeon())  return reinterpret_cast<InstanceMap*>(this); else return NULL;  }
         const InstanceMap* ToInstanceMap() const { if (IsDungeon())  return (const InstanceMap*)((InstanceMap*)this); else return NULL;  }
         float GetWaterOrGroundLevel(float x, float y, float z, float* pGround = NULL, bool swim = false) const;
+
+        // Dynamic Los System for GameObjects.
+    public:
+        uint32 AddDynLOSObject(float x, float y, float radius);
+        uint32 AddDynLOSObject(float x, float y, float z, float radius, float height);
+        void SetDynLOSObjectState(uint32 id, bool state);
+        bool GetDynLOSObjectState(uint32 id);
+        bool IsInDynLOS(float x, float y, float z, float x2, float y2, float z2);
+    private:
+        std::map<uint32, DynamicLOSObject*> m_dynamicLOSObjects;
+        uint32 m_dynamicLOSCounter;
+
     private:
         void LoadMapAndVMap(int gx, int gy);
         void LoadVMap(int gx, int gy);
