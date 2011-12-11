@@ -71,6 +71,7 @@ target_link_libraries(movements_extractor
   collision
   g3dlib
   shared
+  game
 )
 
 if( UNIX )
