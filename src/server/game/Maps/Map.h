@@ -227,7 +227,7 @@ class DynamicLOSObject
         float _y;
         float _z;
         float _height;
-       float _radius;
+        float _radius;
         bool _active;
 };
 
