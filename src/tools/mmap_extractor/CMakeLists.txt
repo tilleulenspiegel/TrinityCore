@@ -31,8 +31,6 @@ include_directories(
   ${CMAKE_SOURCE_DIR}/dep/zlib
   ${CMAKE_SOURCE_DIR}/dep/bzip2
   ${CMAKE_SOURCE_DIR}/dep/acelite
-  ${CMAKE_SOURCE_DIR}/dep/mysqllite/include/internal
-  ${CMAKE_SOURCE_DIR}/dep/mysqllite/
   ${CMAKE_SOURCE_DIR}/dep/g3dlite/include
   ${CMAKE_SOURCE_DIR}/dep/recastnavigation/Recast
   ${CMAKE_SOURCE_DIR}/dep/recastnavigation/Detour
