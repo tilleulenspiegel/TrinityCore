@@ -38,8 +38,8 @@ void RandomMovementGenerator<Creature>::_setRandomLocation(Creature &creature)
     float respX, respY, respZ, respO, wander_distance;
     creature.GetRespawnPosition(respX, respY, respZ, &respO, &wander_distance);
 
-    const float angle = float(rand_norm()) * static_cast<float>(M_PI*2.0f);
-    const float range = float(rand_norm()) * wander_distance;
+    const float angle = rand_norm_f() * (M_PI_F*2.0f);
+    const float range = rand_norm_f() * wander_distance;
 
     float destX = respX + range * cos(angle);
     float destY = respY + range * sin(angle);

@@ -149,7 +149,7 @@ bool WaypointMovementGenerator<Creature>::Update(Creature &creature, const uint3
     else if (creature.movespline->Finalized())
     {
         OnArrived(creature);
-        return StartMove(creature);
+        StartMove(creature);
     }
 
      return true;
