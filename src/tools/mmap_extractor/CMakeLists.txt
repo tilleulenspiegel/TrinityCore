@@ -1,4 +1,4 @@
-# Copyright (C) 2008-2010 Trinity <http://www.trinitycore.org/>
+# Copyright (C) 2008-2011 Trinity <http://www.trinitycore.org/>
 #
 # This file is free software; as a special exception the author gives
 # unlimited permission to copy and/or distribute it, with or without
@@ -47,6 +47,7 @@ include_directories(
   ${CMAKE_SOURCE_DIR}/src/server/collision/Management
   ${CMAKE_SOURCE_DIR}/src/server/collision/Maps
   ${CMAKE_SOURCE_DIR}/src/server/collision/Models
+  ${CMAKE_SOURCE_DIR}/src/server/game
   ${CMAKE_SOURCE_DIR}/src/server/game/Miscellaneous
   ${CMAKE_SOURCE_DIR}/src/server/game/Maps
   ${CMAKE_SOURCE_DIR}/src/server/game/DataStores
@@ -54,6 +55,8 @@ include_directories(
   ${CMAKE_SOURCE_DIR}/src/server/game/Grids/Cells
   ${CMAKE_SOURCE_DIR}/src/server/game/Movement/Waypoints
   ${CMAKE_SOURCE_DIR}/src/server/game/Conditions
+  ${CMAKE_SOURCE_DIR}/src/server/scripts
+  ${CMAKE_SOURCE_DIR}/src/server/scripts/Commands
 )
 
 add_executable(movements_extractor
@@ -69,6 +72,7 @@ target_link_libraries(movements_extractor
   Detour
   collision
   g3dlib
+  scripts
   shared
   game
 )

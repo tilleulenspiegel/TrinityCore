@@ -22,7 +22,6 @@
 #include "MapTree.h"
 #include "ModelInstance.h"
 #include "LoginDatabase.h"
-#include "DisableMgr.h"
 
 #include "DetourNavMeshBuilder.h"
 #include "DetourCommon.h"
