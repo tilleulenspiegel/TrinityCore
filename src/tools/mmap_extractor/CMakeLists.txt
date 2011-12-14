@@ -8,16 +8,7 @@
 # WITHOUT ANY WARRANTY, to the extent permitted by law; without even the
 # implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
-set(sources
-    IntermediateValues.cpp
-    IntermediateValues.h
-    MapBuilder.cpp
-    MapBuilder.h
-    PathCommon.h
-    PathGenerator.cpp
-    TerrainBuilder.cpp
-    TerrainBuilder.h
-    VMapExtensions.cpp)
+file(GLOB_RECURSE sources *.cpp *.h)
 
 # definitions
 add_definitions(-DNO_CORE_FUNCS)
@@ -59,9 +50,7 @@ include_directories(
   ${CMAKE_SOURCE_DIR}/src/server/scripts/Commands
 )
 
-add_executable(movements_extractor
-    ${sources}
-)
+add_executable(movements_extractor ${sources})
 
 target_link_libraries(movements_extractor
   ${MYSQL_LIBRARY}
@@ -73,8 +62,8 @@ target_link_libraries(movements_extractor
   collision
   g3dlib
   scripts
-  shared
   game
+  shared
 )
 
 if( UNIX )
