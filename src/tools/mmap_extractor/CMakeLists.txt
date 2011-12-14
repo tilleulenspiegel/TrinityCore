@@ -25,6 +25,7 @@ add_definitions(-DDEBUG)
 add_definitions(-DNO_vsnprintf)
 
 include_directories(
+  ${CMAKE_BINARY_DIR}
   ${ACE_INCLUDE_DIR}
   ${MYSQL_INCLUDE_DIR}
   ${CMAKE_SOURCE_DIR}/dep/libmpq
